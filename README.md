@@ -8,6 +8,7 @@
 |---|---|---|
 | Week 01 | 프레임워크 개념 + Spring 핵심 (IoC/DI/AOP/PSA) | [week01/](week01/) |
 | Week 02 | 개발환경 설정 + Git 기초 + 팀배정 | [week02/](week02/) |
+| Week 03 | SW 프레임워크 이론 (백엔드/프론트엔드) + Spring MVC 실습 | [week03/](week03/) |
 
 ## 기술 스택
 

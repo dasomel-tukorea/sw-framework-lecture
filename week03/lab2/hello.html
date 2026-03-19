@@ -1,0 +1,12 @@
+<!-- 프로젝트 내 경로: src/main/resources/templates/hello.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Hello Page</title>
+</head>
+<body>
+    <!-- th:text="${name}": Controller에서 model.addAttribute("name", ...)로 전달한 값을 출력 -->
+    <h1>안녕하세요, <span th:text="${name}">이름</span>!</h1>
+</body>
+</html>

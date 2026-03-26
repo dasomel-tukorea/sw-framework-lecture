@@ -1,0 +1,13 @@
+<!-- 프로젝트 내 경로: src/main/resources/templates/greeting.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>인사 페이지</title>
+</head>
+<body>
+    <!-- th:text="${message}": 현재 주입된 GreetingService 구현체의 인사말 출력 -->
+    <h1 th:text="${message}">메시지</h1>
+    <p>현재 주입된 구현체가 생성한 인사말입니다.</p>
+</body>
+</html>

@@ -1,0 +1,19 @@
+# src/main/resources/application.yml
+# 공통 설정 — 모든 프로파일에서 적용
+
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8        # 한글 파라미터 깨짐 방지
+      force: true
+
+spring:
+  profiles:
+    active: h2              # 기본 프로파일: H2 (개발 시 편리, MySQL 없어도 실행 가능)
+
+# 로그 레벨 설정
+logging:
+  level:
+    kr.ac.tukorea.swframework: DEBUG          # 애플리케이션 패키지: DEBUG 이상 출력
+    org.springframework.web: INFO             # Spring Web: INFO 이상 출력

@@ -1,0 +1,17 @@
+# src/main/resources/application-mysql.yml
+# MySQL DB 설정 (운영/통합 테스트 환경)
+# 사용법: ./gradlew bootRun --args='--spring.profiles.active=mysql'
+#
+# 사전 준비:
+#   MySQL 8.x 실행 확인
+#   CREATE DATABASE swframework DEFAULT CHARACTER SET utf8mb4;
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/swframework?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 1234                    # 실제 환경에 맞게 변경
+  sql:
+    init:
+      mode: never                     # MySQL은 별도 스키마 관리 (schema.sql 자동 실행 안 함)

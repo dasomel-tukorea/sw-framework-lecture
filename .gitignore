@@ -7,8 +7,9 @@
 # 생성된 출력 파일
 team_assignment.txt
 
-# oh-my-claudecode 상태 파일
+# AI 상태 파일
 .omc/
+.bkit/
 
 # IntelliJ IDEA
 .idea/

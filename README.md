@@ -10,6 +10,7 @@
 | Week 02 | 개발환경 설정 + Git 기초 + 팀배정 | [week02/](week02/) |
 | Week 03 | SW 프레임워크 이론 (백엔드/프론트엔드) + Spring MVC 실습 | [week03/](week03/) |
 | Week 04 | IoC/DI 실습 (인터페이스 DI, @Primary, Profile) | [week04/](week04/) |
+| Week 05 | AOP & Bean 실습 (Aspect, 생명주기, Scope, Pointcut) | [week05/](week05/) |
 
 ## 기술 스택
 

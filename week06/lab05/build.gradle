@@ -1,0 +1,57 @@
+// [복사 위치] build.gradle (프로젝트 루트)
+// [작업] owasp-java-html-sanitizer 의존성 추가 (Lab 05 4번째 XSS 방어 방법)
+//
+// Lab 05 XSS 방어 4가지 방법별 의존성:
+//   ① th:utext / th:text  → Thymeleaf 내장, 추가 의존성 없음
+//   ② HtmlUtils           → Spring 내장 (spring-boot-starter-web)
+//   ③ XssEscapeFilter     → jakarta.servlet + HtmlUtils, 추가 의존성 없음
+//   ④ OWASP HTML Sanitizer → 아래 외부 라이브러리 추가 필요
+//
+// OWASP HTML Sanitizer 특징:
+//   - allowlist 방식: 허용된 태그(<b>,<i>,<a> 등)만 통과, 나머지는 제거
+//   - HtmlUtils.htmlEscape()와 달리 안전한 HTML은 보존
+//   - Jakarta EE 호환 (순수 Java 구현)
+
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.12'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group = 'kr.ac.tukorea'
+version = '0.0.1-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    runtimeOnly 'com.h2database:h2'
+    runtimeOnly 'com.mysql:mysql-connector-j'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Lab 05 ④ OWASP HTML Sanitizer — allowlist 방식 XSS 방어
+    // Sanitizers.FORMATTING: <b>,<i>,<u>,<em>,<strong> 등 허용
+    // Sanitizers.LINKS: <a href="..."> 허용 (javascript: URL은 자동 제거)
+    implementation 'com.googlecode.owasp-java-html-sanitizer:owasp-java-html-sanitizer:20240325.1'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

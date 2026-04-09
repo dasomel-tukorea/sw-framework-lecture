@@ -1,0 +1,82 @@
+<!-- [복사 위치] src/main/resources/templates/fragments/layout.html -->
+<!-- [작업] fragments/ 폴더가 없으면 생성 후 파일 추가 -->
+<!--
+    Lab 06 — Thymeleaf Fragment (공통 레이아웃)
+
+    Fragment란?
+      HTML 조각을 이름으로 정의하고 다른 템플릿에서 재사용하는 기능
+      헤더/푸터를 한 곳에서 관리 → 수정 시 모든 페이지에 자동 반영
+
+    사용법:
+      th:insert  — 현재 태그 안에 Fragment 삽입 (감싸는 태그 유지)
+      th:replace — 현재 태그를 Fragment로 완전 교체 (감싸는 태그 제거)
+
+    다른 템플릿에서 참조:
+      <header th:replace="~{fragments/layout :: header}"></header>
+      <footer th:replace="~{fragments/layout :: footer}"></footer>
+
+    ~{파일경로 :: 프래그먼트명} 형식:
+      파일경로: templates/ 기준 상대경로, .html 확장자 생략
+      프래그먼트명: th:fragment 속성값
+
+    적용 방법 (Lab 06):
+      list.html, addForm.html, detail.html, editForm.html, xssTest.html에서
+      <!-- Lab 06 완료 후 아래 주석 해제 --> 부분의 주석을 제거
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${pageTitle} ?: 'SW 프레임워크'">SW 프레임워크</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<!--
+    공통 헤더 Fragment
+    th:fragment="header" — 이 태그를 "header"라는 이름의 Fragment로 정의
+
+    다른 템플릿에서:
+      <header th:replace="~{fragments/layout :: header}"></header>
+      → 이 <header> 태그 전체로 교체됨
+-->
+<header th:fragment="header">
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <a th:href="@{/}">SW 프레임워크</a>
+        </div>
+        <div class="navbar-menu">
+            <a th:href="@{/students}">학생 관리</a>
+            <a th:href="@{/students/xss-test}">XSS 테스트</a>
+            <a th:href="@{/greeting}">인사</a>
+
+            <!--
+                7주차 세션 실습 후 동작:
+                session.loginUser: SessionController에서
+                  session.setAttribute("loginUser", name) 으로 저장
+
+                th:if / th:unless: 로그인 상태에 따라 조건부 렌더링
+            -->
+            <span th:if="${session.loginUser != null}">
+                <span th:text="${session.loginUser}">사용자</span>님
+                <form th:action="@{/logout}" method="post" style="display:inline;">
+                    <button type="submit" class="btn btn-sm">로그아웃</button>
+                </form>
+            </span>
+            <a th:unless="${session.loginUser != null}" th:href="@{/login}">로그인</a>
+        </div>
+    </nav>
+</header>
+
+<!--
+    공통 푸터 Fragment
+    th:fragment="footer" — "footer" 이름의 Fragment로 정의
+-->
+<footer th:fragment="footer">
+    <div class="footer-content">
+        <p>© 2026 한국공학대학교 IT경영전공 | SW 프레임워크 실습</p>
+    </div>
+</footer>
+
+</body>
+</html>

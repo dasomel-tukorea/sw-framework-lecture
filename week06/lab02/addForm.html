@@ -1,0 +1,75 @@
+<!-- [복사 위치] src/main/resources/templates/student/addForm.html -->
+<!-- [작업] 파일이 없으면 생성 -->
+<!--
+    Lab 02 — 학생 등록 폼 (검증 에러 표시 없음)
+
+    학습 포인트:
+    1. th:action="@{/students}"  — 컨텍스트 경로 자동 포함
+    2. th:object="${studentForm}" — Controller에서 전달한 DTO와 폼 연결
+    3. th:field="*{name}"        — id/name/value 속성 자동 생성
+       *{...}: th:object로 지정된 studentForm의 필드에 접근
+
+    Form → POST 바인딩 흐름:
+    1. th:object="${studentForm}" → StudentForm DTO와 폼 연결
+    2. th:field="*{name}"        → <input id="name" name="name" value="">
+    3. 사용자 입력 후 submit
+    4. Spring: StudentForm 기본 생성자로 객체 생성 → setName() 등 Setter로 값 주입
+    5. @ModelAttribute("studentForm") → Controller 메서드 파라미터로 전달
+
+    Lab 03에서 추가할 것:
+    - th:classappend: 에러 있을 때 field-error 클래스 추가
+    - th:errors:      필드별 검증 에러 메시지 출력
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 등록</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<!-- Lab 06 완료 후 아래 주석 해제
+<header th:replace="~{fragments/layout :: header}"></header>
+-->
+
+<div class="container">
+    <h1>학생 정보 등록</h1>
+
+    <!--
+        th:action="@{/students}": POST /students 로 전송
+        th:object="${studentForm}": 이 폼과 studentForm DTO를 연결
+    -->
+    <form th:action="@{/students}" th:object="${studentForm}" method="post">
+
+        <!-- 이름 필드 -->
+        <div class="form-group">
+            <label for="name">이름 <span class="required">*</span></label>
+            <!--
+                th:field="*{name}"
+                → id="name", name="name", value="${studentForm.name}" 자동 생성
+            -->
+            <input type="text" th:field="*{name}" placeholder="홍길동">
+        </div>
+
+        <!-- 학번 필드 -->
+        <div class="form-group">
+            <label for="studentId">학번 <span class="required">*</span></label>
+            <input type="text" th:field="*{studentId}" placeholder="202300001 (9자리 숫자)">
+        </div>
+
+        <!-- 이메일 필드 (선택) -->
+        <div class="form-group">
+            <label for="email">이메일 <span class="optional">(선택)</span></label>
+            <input type="email" th:field="*{email}" placeholder="student@tukorea.ac.kr">
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">등록</button>
+            <a th:href="@{/students}" class="btn">취소</a>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

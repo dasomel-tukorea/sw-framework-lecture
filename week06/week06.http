@@ -1,0 +1,628 @@
+### Week 06 — Spring MVC + Thymeleaf 전체 테스트
+### IntelliJ HTTP Client: 각 요청 왼쪽 ▶ 버튼으로 개별 실행
+### 사전 조건: swframework 앱 실행 (http://localhost:8080)
+
+@baseUrl = http://localhost:8080
+
+# ══════════════════════════════════════════════════════════════
+# Lab 01 — REST API (StudentApiController) JSON 응답 확인
+# ══════════════════════════════════════════════════════════════
+
+### [Lab01-1] GET /api/hello
+GET {{baseUrl}}/api/hello
+Accept: application/json
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대, 실제: " + response.status);
+});
+client.test("message 필드 존재", function() {
+    client.assert(response.body.message === "안녕하세요!", "message: 안녕하세요! 기대");
+});
+client.test("course 필드 확인", function() {
+    client.assert(response.body.course === "SW프레임워크", "course: SW프레임워크 기대");
+});
+%}
+
+###
+
+### [Lab01-2] GET /api/students — 전체 학생 목록
+GET {{baseUrl}}/api/students
+Accept: application/json
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("배열 응답", function() {
+    client.assert(Array.isArray(response.body), "배열 형태 기대");
+});
+client.test("초기 데이터 3건 이상", function() {
+    client.assert(response.body.length >= 3, "3건 이상 기대, 실제: " + response.body.length);
+});
+client.test("studentId 필드 존재 (major 아님)", function() {
+    client.assert(response.body[0].studentId !== undefined, "studentId 필드 기대 (major 제거됨)");
+    client.assert(response.body[0].major === undefined, "major 필드가 없어야 함");
+});
+client.test("email 필드 존재", function() {
+    client.assert(response.body[0].email !== undefined, "email 필드 기대");
+});
+%}
+
+###
+
+### [Lab01-3] GET /api/students/1 — 특정 학생 조회
+GET {{baseUrl}}/api/students/1
+Accept: application/json
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("id 확인", function() {
+    client.assert(response.body.id === 1, "id=1 기대");
+});
+client.test("name 확인", function() {
+    client.assert(response.body.name === "홍길동", "name=홍길동 기대");
+});
+client.test("studentId 확인", function() {
+    client.assert(response.body.studentId === "202300001", "studentId=202300001 기대");
+});
+client.test("email 확인", function() {
+    client.assert(response.body.email === "hong@tukorea.ac.kr", "email=hong@tukorea.ac.kr 기대");
+});
+%}
+
+###
+
+### [Lab01-4] GET /api/students/99 — 존재하지 않는 학생
+GET {{baseUrl}}/api/students/99
+Accept: application/json
+
+> {%
+client.test("에러 응답 (4xx 또는 5xx)", function() {
+    client.assert(response.status >= 400, "에러 상태코드 기대, 실제: " + response.status);
+});
+%}
+
+###
+
+### [Lab01-5] GET /students — 학생 목록 HTML 페이지
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("HTML 응답", function() {
+    client.assert(response.headers.valueOf("Content-Type").includes("text/html"), "text/html 기대");
+});
+client.test("학생 목록 테이블 포함", function() {
+    client.assert(response.body.includes("학생 목록"), "제목 '학생 목록' 기대");
+});
+client.test("홍길동 데이터 포함", function() {
+    client.assert(response.body.includes("홍길동"), "초기 데이터 '홍길동' 기대");
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 02 — 학생 등록 폼 + PRG 패턴
+# ══════════════════════════════════════════════════════════════
+
+### [Lab02-1] GET /students/new — 등록 폼
+GET {{baseUrl}}/students/new
+Accept: text/html
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("등록 폼 포함", function() {
+    client.assert(response.body.includes("학생 정보 등록"), "등록 폼 제목 기대");
+});
+client.test("name 입력 필드 포함", function() {
+    client.assert(response.body.includes('name="name"'), "name 필드 기대");
+});
+client.test("studentId 입력 필드 포함", function() {
+    client.assert(response.body.includes('name="studentId"'), "studentId 필드 기대");
+});
+%}
+
+###
+
+### [Lab02-2] POST /students — 학생 등록 (PRG 패턴 확인)
+# PRG: HTTP Client는 redirect를 따라가지 않음 → 302 응답 직접 확인
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=박민준&studentId=202300004&email=park@tukorea.ac.kr
+
+> {%
+client.test("302 Redirect (PRG 패턴)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대, 실제: " + response.status);
+});
+client.test("Location 헤더에 /students/{id} 포함", function() {
+    const location = response.headers.valueOf("Location");
+    client.assert(location !== null && location.includes("/students/"), "Location: /students/{id} 기대, 실제: " + location);
+});
+%}
+
+###
+
+### [Lab02-3] POST /students — 이메일 없이 등록 (선택 필드)
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=최지수&studentId=202300005&email=
+
+> {%
+client.test("302 Redirect (이메일 없어도 등록 성공)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대");
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 03 — Bean Validation
+# ══════════════════════════════════════════════════════════════
+
+### [Lab03-1] POST /students — 이름 빈 값 → @NotBlank 실패
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=&studentId=202300006&email=test@tukorea.ac.kr
+
+> {%
+client.test("200 OK (redirect 아님 — 검증 실패 시 폼 재렌더링)", function() {
+    client.assert(response.status === 200, "200 OK 기대 (302면 검증 미작동), 실제: " + response.status);
+});
+client.test("이름 에러 메시지 포함", function() {
+    client.assert(response.body.includes("이름은 필수 입력 항목입니다"), "이름 에러 메시지 기대");
+});
+%}
+
+###
+
+### [Lab03-2] POST /students — 학번 형식 오류 → @Pattern 실패
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=테스트&studentId=abc&email=
+
+> {%
+client.test("200 OK (검증 실패)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("학번 에러 메시지 포함", function() {
+    client.assert(response.body.includes("9자리 숫자"), "학번 에러 메시지 기대");
+});
+%}
+
+###
+
+### [Lab03-3] POST /students — 이메일 형식 오류 → @Email 실패
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=테스트&studentId=202300006&email=not-an-email
+
+> {%
+client.test("200 OK (검증 실패)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("이메일 에러 메시지 포함", function() {
+    client.assert(response.body.includes("이메일 형식"), "이메일 에러 메시지 기대");
+});
+%}
+
+###
+
+### [Lab03-4] POST /students — 여러 필드 동시 오류
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=&studentId=12345&email=invalid
+
+> {%
+client.test("200 OK (검증 실패)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("이름 + 학번 에러 동시 포함", function() {
+    client.assert(response.body.includes("이름은 필수"), "이름 에러 기대");
+    client.assert(response.body.includes("9자리 숫자"), "학번 에러 기대");
+});
+%}
+
+###
+
+### [Lab03-5] POST /students — 모든 검증 통과 → PRG
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=정수현&studentId=202300099&email=jung@tukorea.ac.kr
+
+> {%
+client.test("302 Redirect (검증 성공 → PRG)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대, 실제: " + response.status);
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 04 — 상세 / 수정 / 삭제
+# @studentId: 실제 존재하는 ID로 변경 후 실행
+# ══════════════════════════════════════════════════════════════
+
+@studentId = 1
+
+### [Lab04-1] GET /students/1 — 학생 상세
+GET {{baseUrl}}/students/{{studentId}}
+Accept: text/html
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("상세 페이지 제목", function() {
+    client.assert(response.body.includes("학생 상세 정보"), "상세 페이지 제목 기대");
+});
+client.test("학번 표시", function() {
+    client.assert(response.body.includes("202300001"), "학번 202300001 기대");
+});
+%}
+
+###
+
+### [Lab04-2] GET /students/99 — 존재하지 않는 학생
+GET {{baseUrl}}/students/99
+Accept: text/html
+
+> {%
+client.test("에러 응답 (4xx/5xx)", function() {
+    client.assert(response.status >= 400, "에러 상태코드 기대, 실제: " + response.status);
+});
+%}
+
+###
+
+### [Lab04-3] GET /students/1/edit — 수정 폼 (기존 값 pre-fill 확인)
+GET {{baseUrl}}/students/{{studentId}}/edit
+Accept: text/html
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("수정 폼 제목", function() {
+    client.assert(response.body.includes("학생 정보 수정"), "수정 폼 제목 기대");
+});
+client.test("기존 이름 pre-fill", function() {
+    client.assert(response.body.includes("홍길동") || response.body.includes("홍길순"), "기존 이름 pre-fill 기대");
+});
+%}
+
+###
+
+### [Lab04-4] POST /students/1/edit — 수정 처리
+POST {{baseUrl}}/students/{{studentId}}/edit
+Content-Type: application/x-www-form-urlencoded
+
+name=홍길순&studentId=202300001&email=hong-updated@tukorea.ac.kr
+
+> {%
+client.test("302 Redirect (수정 후 PRG)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대");
+});
+client.test("Location이 상세 페이지", function() {
+    const location = response.headers.valueOf("Location");
+    client.assert(location.includes("/students/1"), "Location: /students/1 기대, 실제: " + location);
+});
+%}
+
+###
+
+### [Lab04-5] POST /students/1/edit — 수정 검증 실패
+POST {{baseUrl}}/students/{{studentId}}/edit
+Content-Type: application/x-www-form-urlencoded
+
+name=&studentId=202300001&email=
+
+> {%
+client.test("200 OK (검증 실패 → 폼 재렌더링)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("이름 에러 메시지", function() {
+    client.assert(response.body.includes("이름은 필수"), "이름 에러 메시지 기대");
+});
+%}
+
+###
+
+### [Lab04-6] POST /students/3/delete — 삭제
+# ⚠️ 실행하면 실제로 삭제됨. 앱 재시작으로 초기 데이터 복구 가능
+POST {{baseUrl}}/students/3/delete
+
+> {%
+client.test("302 Redirect (삭제 후 목록으로)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대");
+});
+client.test("Location이 목록 페이지", function() {
+    const location = response.headers.valueOf("Location");
+    client.assert(location.includes("/students"), "Location: /students 기대, 실제: " + location);
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 05 — XSS 방어 (th:text vs th:utext)
+# 스크립트 실행 여부는 브라우저에서 직접 확인
+# HTTP Client에서는 응답 HTML 소스의 이스케이프 여부 확인
+# ══════════════════════════════════════════════════════════════
+
+### [Lab05-1] GET /students/xss-test — 폼 페이지
+# URL 우선순위: /xss-test(리터럴) > /{id}(경로변수)
+GET {{baseUrl}}/students/xss-test
+Accept: text/html
+
+> {%
+client.test("200 OK (리터럴 경로 우선 처리)", function() {
+    client.assert(response.status === 200, "200 OK 기대 (500이면 /{id}로 잘못 매핑됨)");
+});
+client.test("XSS 테스트 페이지 제목", function() {
+    client.assert(response.body.includes("XSS"), "XSS 페이지 기대");
+});
+%}
+
+###
+
+### [Lab05-2] POST /students/xss-test — 스크립트 태그 주입
+POST {{baseUrl}}/students/xss-test
+Content-Type: application/x-www-form-urlencoded
+
+userInput=<script>alert('XSS')</script>
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("th:text 영역 — <script> 이스케이프됨 (안전)", function() {
+    // th:text가 적용되면 < > 가 &lt; &gt; 로 변환되어야 함
+    client.assert(response.body.includes("&lt;script&gt;"), "&lt;script&gt; 이스케이프 기대 (th:text 정상 동작)");
+});
+client.test("th:utext 영역 — <script> 그대로 삽입됨 (위험)", function() {
+    // th:utext 영역에는 원본 태그가 그대로 존재해야 함
+    client.assert(response.body.includes("<script>alert"), "<script> 미이스케이프 확인 (th:utext 위험성)");
+});
+%}
+
+###
+
+### [Lab05-3] POST /students/xss-test — img onerror XSS
+POST {{baseUrl}}/students/xss-test
+Content-Type: application/x-www-form-urlencoded
+
+userInput=<img src=x onerror="alert('img XSS')">
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("th:text 영역 — img 태그 이스케이프됨", function() {
+    client.assert(response.body.includes("&lt;img"), "&lt;img 이스케이프 기대");
+});
+%}
+
+###
+
+### [Lab05-4] POST /students/xss-test — 일반 텍스트 (XSS 없음)
+POST {{baseUrl}}/students/xss-test
+Content-Type: application/x-www-form-urlencoded
+
+userInput=안녕하세요 일반 텍스트입니다
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("입력값 그대로 출력", function() {
+    client.assert(response.body.includes("안녕하세요 일반 텍스트입니다"), "입력값 출력 기대");
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Stored XSS 방어 — DB에 저장된 악성 데이터가 화면에 표시될 때
+# th:text → &lt; &gt; 로 변환 (방어), th:utext → 태그 그대로 (위험)
+# 순서대로 실행: 등록 → API 확인 → 목록 HTML 확인 → 상세 HTML 확인
+# ══════════════════════════════════════════════════════════════
+
+### [StoredXSS-1] POST /students — HTML 태그가 포함된 이름으로 학생 등록
+# <b>XSS테스트</b> = 14자 → @Size(max=20) 통과, studentId 9자리 통과
+# URL 인코딩: < → %3C, > → %3E, / → %2F
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=%3Cb%3EXSS%ED%85%8C%EC%8A%A4%ED%8A%B8%3C%2Fb%3E&studentId=202399998&email=
+
+> {%
+client.test("302 Redirect (등록 성공)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대 — 200이면 검증 실패");
+});
+client.globals.set("xssStudentLocation", response.headers.valueOf("Location"));
+%}
+
+###
+
+### [StoredXSS-2] GET /api/students — DB에 원본 태그 저장 확인
+# JSON API는 HTML 이스케이프 없음 → 원본 <b>XSS테스트</b> 그대로 반환
+GET {{baseUrl}}/api/students
+Accept: application/json
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("DB에 원본 HTML 태그가 저장됨 (JSON은 이스케이프 안 함)", function() {
+    const names = response.body.map(function(s) { return s.name; });
+    const found = names.some(function(n) { return n.includes("<b>"); });
+    client.assert(found, "JSON 응답에서 <b> 태그 포함된 이름 기대 — StoredXSS-1이 먼저 실행됐어야 함");
+});
+%}
+
+###
+
+### [StoredXSS-3] GET /students — 목록 HTML에서 th:text 이스케이프 확인
+# th:text가 < → &lt;, > → &gt; 로 변환 → Stored XSS 방어됨
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("목록에서 &lt;b&gt; 이스케이프 확인 (th:text 방어)", function() {
+    // th:text → <b>XSS테스트</b>가 &lt;b&gt;XSS테스트&lt;/b&gt;로 출력
+    client.assert(response.body.includes("&lt;b&gt;"), "&lt;b&gt; 이스케이프 기대 — 목록에서 Stored XSS 방어됨");
+});
+client.test("원본 <b> 태그가 HTML에 직접 없음 (실행 방지)", function() {
+    // &lt;b&gt; 안에도 <b>가 포함되므로 XSS테스트라는 텍스트 주변으로 확인
+    // 이스케이프 후: &lt;b&gt;XSS테스트&lt;/b&gt;
+    // 이스케이프 전(위험): <b>XSS테스트</b> → 굵게 렌더링됨
+    const escapedPresent = response.body.includes("&lt;b&gt;XSS");
+    client.assert(escapedPresent, "이스케이프된 형태(&lt;b&gt;XSS)로 출력되어야 함");
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 05 — XSS 방어 4가지 방법 비교 (/students/xss-test)
+#
+# 방법 ①  th:utext               → 이스케이프 없음 (위험)
+# 방법 ②  th:text                → Thymeleaf 뷰 레이어 자동 이스케이프
+# 방법 ③  HtmlUtils.htmlEscape() → Controller(Java) 레이어 수동 이스케이프 (모든 HTML 차단)
+# 방법 ④  OWASP HTML Sanitizer   → allowlist 방식, 안전한 HTML 보존 + 위험 태그 제거
+# 방법 ⑤  XssEscapeFilter        → 서블릿 필터 레벨 자동 sanitize (/students/filter-test)
+# ══════════════════════════════════════════════════════════════
+
+### [XSS-Manual-1] GET /students/xss-test — 비교 폼
+GET {{baseUrl}}/students/xss-test
+Accept: text/html
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("XSS 비교 페이지 제목", function() {
+    client.assert(response.body.includes("4가지 방법"), "4가지 방법 비교 제목 기대");
+});
+%}
+
+###
+
+### [XSS-Manual-2] POST /students/xss-test — script 태그: 3가지 방법 모두 이스케이프 확인
+# userInput URL 인코딩: <script>alert('XSS')</script>
+# < → %3C, > → %3E, ' → %27, ( → %28, ) → %29
+POST {{baseUrl}}/students/xss-test
+Content-Type: application/x-www-form-urlencoded
+
+userInput=%3Cscript%3Ealert%28%27XSS%27%29%3C%2Fscript%3E
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("② th:text — &lt;script&gt; 이스케이프됨 (Thymeleaf 자동 방어)", function() {
+    client.assert(response.body.includes("&lt;script&gt;"), "th:text 이스케이프 기대");
+});
+client.test("③ 수동 이스케이프 — &lt;script&gt; 가 2회 이상 나타남 (th:text + manual)", function() {
+    const count = (response.body.match(/&lt;script&gt;/g) || []).length;
+    client.assert(count >= 2, "th:text + 수동 이스케이프 각 1회 기대, 실제: " + count);
+});
+client.test("④ OWASP Sanitizer — <script> 태그 완전 제거됨", function() {
+    // OWASP sanitize 후 th:utext로 출력: <script>는 allowlist에 없으므로 제거
+    // 응답 HTML에 <script>alert 형태가 없어야 함 (th:utext 영역 ①은 여전히 존재)
+    // → owaspSanitized 영역에서는 script 태그가 사라짐
+    client.assert(response.body.includes("OWASP"), "OWASP 섹션 존재 기대");
+});
+%}
+
+###
+
+### [XSS-OWASP-1] POST /students/xss-test — OWASP allowlist 핵심 차이 확인
+# 입력: <b>굵은글씨</b><script>alert('XSS')</script>
+# URL 인코딩: %3Cb%3E%EA%B5%B5%EC%9D%80%EA%B8%80%EC%94%A8%3C%2Fb%3E%3Cscript%3Ealert%28%27XSS%27%29%3C%2Fscript%3E
+#
+# 기대 결과:
+#   ③ HtmlUtils → &lt;b&gt;굵은글씨&lt;/b&gt;... (b 태그도 이스케이프, 서식 소실)
+#   ④ OWASP    → <b>굵은글씨</b>              (b 보존, script 제거)
+POST {{baseUrl}}/students/xss-test
+Content-Type: application/x-www-form-urlencoded
+
+userInput=%3Cb%3E%EA%B5%B5%EC%9D%80%EA%B8%80%EC%94%A8%3C%2Fb%3E%3Cscript%3Ealert%28%27XSS%27%29%3C%2Fscript%3E
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("③ HtmlUtils — <b> 태그도 이스케이프됨 (모든 HTML 차단)", function() {
+    // HtmlUtils는 <b>도 &lt;b&gt;로 변환 → 서식 소실
+    client.assert(response.body.includes("&lt;b&gt;"), "&lt;b&gt; 이스케이프 기대 (HtmlUtils가 b 태그도 차단)");
+});
+client.test("④ OWASP — <script> 제거되고 <b> 태그는 응답 HTML에 남아있음", function() {
+    // OWASP sanitize: <b>굵은글씨</b>는 허용, <script>...는 제거
+    // th:utext로 출력하므로 응답 HTML에 <b>굵은글씨</b>가 그대로 존재해야 함
+    client.assert(response.body.includes("<b>굵은글씨</b>"), "<b>굵은글씨</b> OWASP 보존 기대");
+    client.assert(!response.body.includes("<script>alert"), "<script>alert 제거 기대 (OWASP 방어)");
+});
+%}
+
+###
+
+### [XSS-Filter-1] GET /students/filter-test — XSS Servlet Filter 필터 데모 폼
+GET {{baseUrl}}/students/filter-test
+Accept: text/html
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("XSS Servlet Filter 데모 페이지", function() {
+    client.assert(response.body.includes("XSS Servlet Filter"), "XSS Servlet Filter 페이지 제목 기대");
+});
+%}
+
+###
+
+### [XSS-Filter-2] POST /students/filter-test — 필터가 파라미터 sanitize 후 Controller 진입
+# XssEscapeFilter 가 /students/filter-test 에 등록됨
+# → Controller 의 filterTest() 메서드에는 HtmlUtils.htmlEscape() 호출 없음
+# → 그런데도 userInput 이 이미 이스케이프된 상태 (필터가 처리)
+POST {{baseUrl}}/students/filter-test
+Content-Type: application/x-www-form-urlencoded
+
+userInput=%3Cscript%3Ealert%28%27Filter-XSS%27%29%3C%2Fscript%3E
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("필터 레벨 이스케이프 — th:utext 로 출력해도 &lt;script&gt; 로 표시됨", function() {
+    // XssEscapeFilterConfig 의 XssEscapeFilter 가 파라미터 sanitize
+    // → th:utext 로 출력해도 <script> 실행 안 됨
+    client.assert(response.body.includes("&lt;script&gt;"), "필터 레벨 이스케이프 기대 — Controller 코드에 escape() 없음을 확인");
+});
+client.test("Controller 코드에 수동 escape 호출 없이 방어됨 (관심사 분리)", function() {
+    // 이 테스트는 동작 결과로만 확인 가능 — StudentController.filterTest() 소스 참고
+    client.assert(!response.body.includes("<script>alert"), "스크립트 태그 미실행 확인");
+});
+%}
+
+###

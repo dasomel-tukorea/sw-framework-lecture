@@ -1,0 +1,76 @@
+<!-- [복사 위치] src/main/resources/templates/student/list.html -->
+<!-- [작업] lab01 파일을 이 파일로 교체 (header fragment 적용) -->
+<!--
+    Lab 06 — Fragment 적용: 학생 목록
+
+    Lab 01 대비 변경:
+    - <header th:replace="~{fragments/layout :: header}"> 주석 해제
+    - <footer th:replace="~{fragments/layout :: footer}"> 추가
+
+    th:replace="~{fragments/layout :: header}":
+      ~{...}: Fragment 표현식
+      fragments/layout: templates/fragments/layout.html 파일
+      :: header: th:fragment="header" 로 정의된 조각
+      → 이 <header> 태그 전체를 layout.html의 header Fragment로 교체
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 목록</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<!-- Fragment 적용: fragments/layout.html의 header Fragment로 교체 -->
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<div class="container">
+    <h1>학생 목록</h1>
+
+    <a th:href="@{/students/new}" class="btn btn-primary">+ 새 학생 등록</a>
+
+    <br><br>
+
+    <table th:if="${!students.isEmpty()}">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>이름</th>
+                <th>학번</th>
+                <th>이메일</th>
+                <th>관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="student : ${students}">
+                <td th:text="${student.id}">1</td>
+                <td>
+                    <a th:href="@{/students/{id}(id=${student.id})}"
+                       th:text="${student.name}">홍길동</a>
+                </td>
+                <td th:text="${student.studentId}">202300001</td>
+                <td th:text="${student.email ?: '-'}">student@tukorea.ac.kr</td>
+                <td>
+                    <a th:href="@{/students/{id}/edit(id=${student.id})}" class="btn btn-sm">수정</a>
+                    <form th:action="@{/students/{id}/delete(id=${student.id})}"
+                          method="post" style="display:inline;"
+                          onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                        <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+                    </form>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p th:unless="${!students.isEmpty()}" class="empty-msg">
+        등록된 학생이 없습니다.
+        <a th:href="@{/students/new}">첫 번째 학생을 등록해보세요.</a>
+    </p>
+</div>
+
+<!-- Fragment 적용: fragments/layout.html의 footer Fragment로 교체 -->
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

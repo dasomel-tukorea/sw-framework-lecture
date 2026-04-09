@@ -1,0 +1,86 @@
+<!-- [복사 위치] src/main/resources/templates/student/list.html -->
+<!-- [작업] 파일이 없으면 생성 -->
+<!--
+    Lab 01 — 학생 목록 화면
+
+    학습 포인트:
+    1. th:each  — 컬렉션 반복 출력
+    2. th:text  — 서버 데이터를 텍스트로 출력 (HTML 이스케이프 → XSS 방어)
+    3. th:href  — @{} 링크 표현식으로 동적 URL 생성
+    4. th:if / th:unless — 조건부 렌더링
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 목록</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<!-- Lab 06 완료 후 아래 주석 해제
+<header th:replace="~{fragments/layout :: header}"></header>
+-->
+
+<div class="container">
+    <h1>학생 목록</h1>
+
+    <!-- @{/students/new}: 컨텍스트 경로 자동 포함 -->
+    <a th:href="@{/students/new}" class="btn btn-primary">+ 새 학생 등록</a>
+
+    <br><br>
+
+    <!--
+        th:if="${!students.isEmpty()}"
+        students: Controller의 model.addAttribute("students", ...) 로 전달된 List<Student>
+    -->
+    <table th:if="${!students.isEmpty()}">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>이름</th>
+                <th>학번</th>
+                <th>이메일</th>
+                <th>관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!--
+                th:each="student : ${students}"
+                students 리스트에서 student 변수로 하나씩 꺼내며 <tr> 반복 생성
+            -->
+            <tr th:each="student : ${students}">
+                <td th:text="${student.id}">1</td>
+                <td>
+                    <!-- @{/students/{id}(id=${student.id})}: 경로변수 + 표현식 조합 -->
+                    <a th:href="@{/students/{id}(id=${student.id})}"
+                       th:text="${student.name}">홍길동</a>
+                </td>
+                <td th:text="${student.studentId}">202300001</td>
+                <!--
+                    ${student.email ?: '-'}: Elvis 연산자
+                    email이 null이면 '-' 출력
+                -->
+                <td th:text="${student.email ?: '-'}">student@tukorea.ac.kr</td>
+                <td>
+                    <a th:href="@{/students/{id}/edit(id=${student.id})}" class="btn btn-sm">수정</a>
+                    <!-- 삭제는 POST 방식 — GET 삭제는 보안 취약점 -->
+                    <form th:action="@{/students/{id}/delete(id=${student.id})}"
+                          method="post" style="display:inline;"
+                          onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                        <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+                    </form>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- th:unless: th:if의 반대 조건 -->
+    <p th:unless="${!students.isEmpty()}" class="empty-msg">
+        등록된 학생이 없습니다.
+        <a th:href="@{/students/new}">첫 번째 학생을 등록해보세요.</a>
+    </p>
+</div>
+
+</body>
+</html>

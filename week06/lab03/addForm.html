@@ -1,0 +1,77 @@
+<!-- [복사 위치] src/main/resources/templates/student/addForm.html -->
+<!-- [작업] lab02 파일을 이 파일로 교체 (th:classappend + th:errors 추가) -->
+<!--
+    Lab 03 — 학생 등록 폼 (Bean Validation 에러 표시)
+
+    Lab 02 대비 추가:
+    1. th:classappend — 에러 발생 시 field-error 클래스 추가 (빨간 테두리)
+    2. th:errors      — 필드별 검증 에러 메시지 출력
+
+    #fields: Thymeleaf 빌트인 객체 — 검증 결과 접근 제공
+      #fields.hasErrors('name') → name 필드에 에러가 있으면 true
+
+    th:errors="*{name}":
+      - name 필드의 검증 에러 메시지 출력
+      - 에러가 없으면 이 태그 자체가 HTML에 포함되지 않음
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 등록</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<!-- Lab 06 완료 후 아래 주석 해제
+<header th:replace="~{fragments/layout :: header}"></header>
+-->
+
+<div class="container">
+    <h1>학생 정보 등록</h1>
+
+    <form th:action="@{/students}" th:object="${studentForm}" method="post">
+
+        <!-- 이름 필드 -->
+        <div class="form-group">
+            <label for="name">이름 <span class="required">*</span></label>
+            <!--
+                th:classappend="${#fields.hasErrors('name')} ? 'field-error'"
+                → name 필드에 에러가 있으면 class="field-error" 추가 (빨간 테두리)
+                → 에러가 없으면 class 속성에 아무것도 추가되지 않음
+            -->
+            <input type="text" th:field="*{name}" placeholder="홍길동"
+                   th:classappend="${#fields.hasErrors('name')} ? 'field-error'">
+            <!--
+                th:errors="*{name}"
+                → @NotBlank, @Size 검증 실패 시 message 속성값 출력
+                → 에러 없으면 이 <div> 자체가 렌더링되지 않음
+            -->
+            <div class="error-msg" th:errors="*{name}">이름 에러 메시지 (서버 없이 열면 표시)</div>
+        </div>
+
+        <!-- 학번 필드 -->
+        <div class="form-group">
+            <label for="studentId">학번 <span class="required">*</span></label>
+            <input type="text" th:field="*{studentId}" placeholder="202300001 (9자리 숫자)"
+                   th:classappend="${#fields.hasErrors('studentId')} ? 'field-error'">
+            <div class="error-msg" th:errors="*{studentId}">학번 에러 메시지</div>
+        </div>
+
+        <!-- 이메일 필드 (선택) -->
+        <div class="form-group">
+            <label for="email">이메일 <span class="optional">(선택)</span></label>
+            <input type="email" th:field="*{email}" placeholder="student@tukorea.ac.kr"
+                   th:classappend="${#fields.hasErrors('email')} ? 'field-error'">
+            <div class="error-msg" th:errors="*{email}">이메일 에러 메시지</div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">등록</button>
+            <a th:href="@{/students}" class="btn">취소</a>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!-- [복사 위치] src/main/resources/templates/student/detail.html -->
+<!-- [작업] lab04 파일을 이 파일로 교체 (header/footer fragment 적용) -->
+<!--
+    Lab 06 — Fragment 적용: 학생 상세
+    Lab 04 대비 변경: header/footer Fragment 적용
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 상세</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<div class="container">
+    <h1>학생 상세 정보</h1>
+
+    <div class="alert alert-success" th:if="${status}">
+        학생 정보가 성공적으로 저장되었습니다.
+    </div>
+
+    <div class="detail-card">
+        <table class="detail-table">
+            <tr>
+                <th>ID</th>
+                <td th:text="${student.id}">1</td>
+            </tr>
+            <tr>
+                <th>이름</th>
+                <td th:text="${student.name}">홍길동</td>
+            </tr>
+            <tr>
+                <th>학번</th>
+                <td th:text="${student.studentId}">202300001</td>
+            </tr>
+            <tr>
+                <th>이메일</th>
+                <td th:text="${student.email ?: '-'}">student@tukorea.ac.kr</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="form-actions">
+        <a th:href="@{/students/{id}/edit(id=${student.id})}" class="btn btn-primary">수정</a>
+        <form th:action="@{/students/{id}/delete(id=${student.id})}"
+              method="post" style="display:inline;"
+              onsubmit="return confirm('정말 삭제하시겠습니까?')">
+            <button type="submit" class="btn btn-danger">삭제</button>
+        </form>
+        <a th:href="@{/students}" class="btn">목록으로</a>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

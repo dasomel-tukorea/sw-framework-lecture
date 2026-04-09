@@ -1,0 +1,210 @@
+<!-- [복사 위치] src/main/resources/templates/student/xssTest.html -->
+<!-- [작업] lab04 의 xssTest.html 을 이 파일로 교체 (수동 이스케이프 섹션 추가) -->
+<!--
+    Lab 05-A — XSS 방어 4가지 방법 비교
+
+    방법 ①  th:utext           — 이스케이프 없음 (위험)
+    방법 ②  th:text            — Thymeleaf 뷰 레이어 자동 이스케이프 (안전)
+    방법 ③  HtmlUtils.escape   — Java(Controller) 레이어 수동 이스케이프 (안전, 모든 HTML 차단)
+    방법 ④  OWASP Sanitizer    — allowlist 방식, 안전한 HTML 보존 + 위험 태그만 제거 (안전)
+
+    ③ vs ④ 핵심 차이:
+      입력: <b>굵은글씨</b><script>alert('XSS')</script>
+      HtmlUtils → &lt;b&gt;굵은글씨&lt;/b&gt;... (모든 HTML 이스케이프, 서식도 사라짐)
+      OWASP     → <b>굵은글씨</b>              (script만 제거, b 태그 보존 → 굵게 표시)
+
+    → XSS Servlet Filter 필터 레벨 방어는 /students/filter-test 에서 확인
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>XSS 방어 테스트 — 4가지 방법 비교</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+    <style>
+        .xss-box { border: 2px solid; border-radius: 6px; padding: 16px; margin: 12px 0; }
+        .safe-box    { border-color: #4caf50; background: #f1f8e9; }
+        .danger-box  { border-color: #e53935; background: #fff5f5; }
+        .manual-box  { border-color: #1976d2; background: #e3f2fd; }
+        .owasp-box   { border-color: #f57c00; background: #fff3e0; }
+        .box-label   { font-weight: bold; font-size: 0.85em; margin-bottom: 8px; }
+        .safe-label  { color: #2e7d32; }
+        .danger-label{ color: #c62828; }
+        .manual-label{ color: #1565c0; }
+        .owasp-label { color: #e65100; }
+        .output-area { margin-top: 8px; padding: 8px; background: white; border-radius: 4px; }
+        .method-nav  { margin: 16px 0; padding: 12px; background: #f5f5f5; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+<!-- Lab 06 완료 후 아래 주석 해제
+<header th:replace="~{fragments/layout :: header}"></header>
+-->
+
+<div class="container">
+    <h1>XSS 방어 체험 — 4가지 방법 비교</h1>
+
+    <div class="method-nav">
+        <strong>방어 방법 비교:</strong>
+        <strong>① th:utext / th:text / 수동 이스케이프 / OWASP Sanitizer (현재 페이지)</strong>
+        &nbsp;|&nbsp;
+        <a th:href="@{/students/filter-test}">② XSS Servlet Filter 필터 레벨 방어 →</a>
+    </div>
+
+    <div class="alert alert-info">
+        <strong>실습:</strong>
+        <code>&lt;b&gt;굵은글씨&lt;/b&gt;&lt;script&gt;alert('XSS')&lt;/script&gt;</code> 를 입력하면
+        4가지 방법의 차이를 한눈에 볼 수 있습니다.
+    </div>
+
+    <!-- 입력 폼 -->
+    <form th:action="@{/students/xss-test}" method="post" class="xss-form">
+        <div class="form-group">
+            <label for="userInput">HTML/스크립트 입력</label>
+            <input type="text" id="userInput" name="userInput"
+                   placeholder="<script>alert('XSS')</script>"
+                   style="width: 420px;">
+        </div>
+        <button type="submit" class="btn btn-primary">제출</button>
+        <a th:href="@{/students}" class="btn" style="margin-left:8px;">목록으로</a>
+    </form>
+
+    <!-- 결과 출력 (userInput이 있을 때만 표시) -->
+    <div th:if="${userInput != null}">
+        <h2>출력 결과 비교</h2>
+
+        <!-- ① th:utext — 위험 -->
+        <!--
+            th:utext: HTML 을 이스케이프 없이 그대로 렌더링
+            → <script> 태그가 실행됨 → XSS 공격 성공!
+        -->
+        <div class="xss-box danger-box">
+            <div class="box-label danger-label">① th:utext — 위험 (이스케이프 없음)</div>
+            <code>th:utext="${userInput}"</code>
+            <div class="output-area">
+                <span th:utext="${userInput}">출력값</span>
+            </div>
+            <small style="color:#c62828;">
+                스크립트가 실행됩니다! 사용자 입력에 절대 사용 금지
+            </small>
+        </div>
+
+        <!-- ② th:text — 안전 (Thymeleaf 자동 이스케이프) -->
+        <!--
+            th:text: Thymeleaf 가 뷰 렌더링 시점에 HTML 특수문자를 자동 이스케이프
+              <  →  &lt;
+              >  →  &gt;
+            → <script> 가 문자열로 표시됨 (실행 안 됨)
+        -->
+        <div class="xss-box safe-box">
+            <div class="box-label safe-label">② th:text — 안전 (Thymeleaf 뷰 레이어 이스케이프)</div>
+            <code>th:text="${userInput}"</code>
+            <div class="output-area">
+                <span th:text="${userInput}">출력값</span>
+            </div>
+            <small style="color:#555;">
+                HTML 소스 보기: &lt;script&gt; → &amp;lt;script&amp;gt; 로 변환됨
+            </small>
+        </div>
+
+        <!-- ③ 수동 이스케이프 — 안전 (Controller Java 레이어에서 처리) -->
+        <!--
+            HtmlUtils.htmlEscape(userInput) 을 Controller 에서 먼저 호출
+            → manualEscaped 는 이미 이스케이프된 문자열
+            → th:utext 로 출력해도 이미 &lt;script&gt; 로 변환되어 있어 실행 안 됨
+
+            주의: th:text 로 출력하면 이중 이스케이프 발생
+              &lt; → &amp;lt; 처럼 보임 → 그래서 th:utext 사용
+        -->
+        <div class="xss-box manual-box">
+            <div class="box-label manual-label">③ 수동 이스케이프 — 안전 (Controller 레이어에서 처리)</div>
+            <code>HtmlUtils.htmlEscape(userInput) → th:utext="${manualEscaped}"</code>
+            <div class="output-area">
+                <span th:utext="${manualEscaped}">출력값</span>
+            </div>
+            <small style="color:#1565c0;">
+                Controller 에서 <code>HtmlUtils.htmlEscape()</code> 로 이스케이프 후
+                th:utext 로 출력 — 이미 방어된 문자열이므로 스크립트 실행 안 됨
+            </small>
+        </div>
+
+        <!-- ④ OWASP HTML Sanitizer — allowlist 방식 (안전한 HTML 보존) -->
+        <!--
+            Sanitizers.FORMATTING.and(Sanitizers.LINKS).sanitize(userInput)
+            → allowlist에 있는 태그(<b>,<i>,<u>,<em>,<strong>,<a> 등)는 그대로 통과
+            → <script>, <img onerror=...>, javascript: URL 등 위험 요소만 제거
+            → 사용자가 작성한 서식(굵게, 기울임, 링크)을 유지하면서 XSS 방어 가능
+
+            HtmlUtils.htmlEscape() 와 비교:
+              HtmlUtils → <b>굵은글씨</b> 도 &lt;b&gt;굵은글씨&lt;/b&gt; 로 변환 (서식 소실)
+              OWASP     → <b>굵은글씨</b> 는 보존, <script>...는 제거 (서식 유지)
+        -->
+        <div class="xss-box owasp-box">
+            <div class="box-label owasp-label">④ OWASP HTML Sanitizer — allowlist 방식 (안전한 HTML 보존 + 위험 태그 제거)</div>
+            <code>Sanitizers.FORMATTING.and(Sanitizers.LINKS).sanitize(userInput) → th:utext="${owaspSanitized}"</code>
+            <div class="output-area">
+                <span th:utext="${owaspSanitized}">출력값</span>
+            </div>
+            <small style="color:#e65100;">
+                <code>&lt;b&gt;굵은글씨&lt;/b&gt;&lt;script&gt;alert('XSS')&lt;/script&gt;</code> 입력 시:<br>
+                → <b>굵은글씨</b> 는 그대로 렌더링 (허용 태그 보존)<br>
+                → <code>&lt;script&gt;</code> 는 완전히 제거 (allowlist에 없는 태그 차단)
+            </small>
+        </div>
+
+        <!-- 4가지 방법 정리 표 -->
+        <h3 style="margin-top:24px;">정리</h3>
+        <table>
+            <thead>
+            <tr>
+                <th>방법</th>
+                <th>이스케이프 위치</th>
+                <th>안전 여부</th>
+                <th>특징</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <td>① th:utext</td>
+                <td>없음</td>
+                <td style="color:#c62828;">위험</td>
+                <td>HTML 그대로 렌더링</td>
+            </tr>
+            <tr>
+                <td>② th:text</td>
+                <td>View 레이어 (Thymeleaf)</td>
+                <td style="color:#2e7d32;">안전</td>
+                <td>가장 간단, Spring MVC 기본 권장</td>
+            </tr>
+            <tr>
+                <td>③ HtmlUtils.htmlEscape()</td>
+                <td>Controller 레이어 (Java)</td>
+                <td style="color:#2e7d32;">안전</td>
+                <td>모든 HTML 차단, View 에 독립적</td>
+            </tr>
+            <tr style="background:#fff3e0;">
+                <td>④ OWASP Sanitizer</td>
+                <td>Controller 레이어 (Java)</td>
+                <td style="color:#2e7d32;">안전</td>
+                <td>allowlist 방식 — 허용 태그 보존, 위험 태그만 제거</td>
+            </tr>
+            <tr>
+                <td>XSS Servlet Filter</td>
+                <td>Filter 레이어 (Servlet)</td>
+                <td style="color:#2e7d32;">안전</td>
+                <td>Controller 코드 변경 없이 전역 적용</td>
+            </tr>
+            </tbody>
+        </table>
+
+        <p>
+            <a th:href="@{/students/filter-test}" class="btn btn-primary">
+                → XSS Servlet Filter 필터 레벨 방어 체험하기
+            </a>
+        </p>
+    </div>
+</div>
+
+</body>
+</html>

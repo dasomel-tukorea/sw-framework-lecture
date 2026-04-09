@@ -1,0 +1,148 @@
+<!-- [복사 위치] src/main/resources/templates/student/xssFilterTest.html -->
+<!-- [작업] 파일이 없으면 생성 -->
+<!--
+    Lab 05-B — XSS Servlet Filter (서블릿 필터 레벨 방어)
+
+    XssEscapeFilterConfig 의 XssEscapeFilter 가
+    /students/filter-test POST 요청 파라미터를 Controller 진입 전에 sanitize
+
+    핵심 포인트:
+      - Controller 코드에 HtmlUtils.htmlEscape() 호출이 없음
+      - 그런데도 userInput 이 이미 이스케이프된 상태로 도달함
+      → 서블릿 필터가 HttpServletRequestWrapper 로 파라미터를 가로채서 처리
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>XSS Servlet Filter 데모</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+    <style>
+        .xss-box    { border: 2px solid; border-radius: 6px; padding: 16px; margin: 12px 0; }
+        .safe-box   { border-color: #4caf50; background: #f1f8e9; }
+        .filter-box { border-color: #7b1fa2; background: #f3e5f5; }
+        .box-label  { font-weight: bold; font-size: 0.85em; margin-bottom: 8px; }
+        .safe-label { color: #2e7d32; }
+        .filter-label { color: #6a1b9a; }
+        .output-area { margin-top: 8px; padding: 8px; background: white; border-radius: 4px; }
+        .flow-diagram { background: #f5f5f5; padding: 16px; border-radius: 6px; font-family: monospace; line-height: 2; }
+        .method-nav  { margin: 16px 0; padding: 12px; background: #f5f5f5; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+<!-- Lab 06 완료 후 아래 주석 해제
+<header th:replace="~{fragments/layout :: header}"></header>
+-->
+
+<div class="container">
+    <h1>XSS Servlet Filter — 서블릿 필터 레벨 방어</h1>
+
+    <div class="method-nav">
+        <strong>방어 방법 비교:</strong>
+        <a th:href="@{/students/xss-test}">← ① th:utext vs th:text vs 수동 이스케이프</a>
+        &nbsp;|&nbsp;
+        <strong>② XSS Servlet Filter 레벨 방어 (현재 페이지)</strong>
+    </div>
+
+    <!-- 동작 원리 설명 -->
+    <div class="alert alert-info">
+        <strong>이 페이지의 특징:</strong>
+        <code>XssEscapeFilterConfig</code> 의 <code>XssEscapeFilter</code> 가
+        <code>/students/filter-test</code> URL 에만 등록되어 있습니다.<br>
+        POST 요청이 오면 <strong>Controller 진입 전</strong>에 모든 파라미터를 자동 이스케이프합니다.
+    </div>
+
+    <!-- 필터 흐름 다이어그램 -->
+    <div class="flow-diagram">
+        브라우저 POST → <strong>[XssEscapeFilter]</strong> → HttpServletRequestWrapper 적용<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        ↓ getParameter() 호출 시 HtmlUtils.htmlEscape() 자동 실행<br>
+        → DispatcherServlet → <strong>StudentController.filterTest()</strong><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        ↓ userInput 은 이미 이스케이프된 상태<br>
+        → Model → Thymeleaf → HTML 응답
+    </div>
+
+    <!-- 입력 폼 -->
+    <form th:action="@{/students/filter-test}" method="post" style="margin-top: 20px;">
+        <div class="form-group">
+            <label for="userInput">HTML/스크립트 입력</label>
+            <input type="text" id="userInput" name="userInput"
+                   placeholder="<script>alert('XSS')</script>"
+                   style="width: 420px;">
+        </div>
+        <button type="submit" class="btn btn-primary">제출 (필터 통과)</button>
+        <a th:href="@{/students/xss-test}" class="btn" style="margin-left:8px;">← 이전 비교 페이지</a>
+    </form>
+
+    <!-- 결과 출력 -->
+    <div th:if="${userInput != null}">
+        <h2>결과</h2>
+
+        <!--
+            필터 레벨에서 이미 이스케이프됨
+            → th:utext 로 출력해도 스크립트가 실행되지 않음
+            → Controller 코드에 이스케이프 로직 없음 (관심사 분리)
+        -->
+        <div class="xss-box filter-box">
+            <div class="box-label filter-label">
+                XSS Servlet Filter 적용 결과 — th:utext 로 출력해도 안전
+            </div>
+            <code>th:utext="${userInput}" (Controller 에서 escape() 호출 없음)</code>
+            <div class="output-area">
+                <span th:utext="${userInput}">출력값</span>
+            </div>
+            <small style="color:#6a1b9a;">
+                Controller 의 <code>filterTest()</code> 메서드를 확인하세요 —
+                <code>HtmlUtils.htmlEscape()</code> 호출이 없습니다.<br>
+                필터가 이미 처리했기 때문에 Controller 코드는 깨끗하게 유지됩니다.
+            </small>
+        </div>
+
+        <!-- 비교 표 -->
+        <div class="xss-box safe-box">
+            <div class="box-label safe-label">핵심 차이 정리</div>
+            <table>
+                <thead>
+                <tr>
+                    <th>항목</th>
+                    <th>/students/xss-test (수동)</th>
+                    <th>/students/filter-test (필터)</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>이스케이프 위치</td>
+                    <td>Controller (Java 코드)</td>
+                    <td>Servlet Filter (요청 파라미터 레벨)</td>
+                </tr>
+                <tr>
+                    <td>Controller 코드</td>
+                    <td><code>HtmlUtils.htmlEscape(userInput)</code> 호출 필요</td>
+                    <td>호출 불필요 (필터가 자동 처리)</td>
+                </tr>
+                <tr>
+                    <td>적용 범위</td>
+                    <td>해당 메서드만</td>
+                    <td>필터 등록 URL 전체 (자동 전역 적용)</td>
+                </tr>
+                <tr>
+                    <td>관심사 분리</td>
+                    <td>보안 로직이 비즈니스 코드에 혼재</td>
+                    <td>보안 로직을 필터 계층으로 분리</td>
+                </tr>
+                <tr>
+                    <td>추가 의존성</td>
+                    <td>없음</td>
+                    <td>없음 (Spring 내장 HtmlUtils 사용)</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+</div>
+
+</body>
+</html>

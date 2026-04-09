@@ -1,0 +1,73 @@
+<!-- [복사 위치] src/main/resources/templates/student/editForm.html -->
+<!-- [작업] 파일이 없으면 생성 -->
+<!--
+    Lab 04 — 학생 수정 폼
+
+    addForm.html과의 차이:
+    1. th:action: POST /students/{id}/edit (studentId 경로변수 사용)
+    2. 기존 값이 th:field에 pre-fill
+       Controller: Student → StudentForm 복사 후 Model 전달
+
+    studentId (Model 속성): 수정 대상 학생의 DB id (Long)
+    → th:action URL의 {id} 치환 및 취소 버튼 링크에 사용
+    ※ studentId(학번 문자열)와 이름이 같아 혼동 주의
+      여기서 studentId는 model.addAttribute("studentId", id) 로 전달된 DB PK
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 수정</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<!-- Lab 06 완료 후 아래 주석 해제
+<header th:replace="~{fragments/layout :: header}"></header>
+-->
+
+<div class="container">
+    <h1>학생 정보 수정</h1>
+
+    <!--
+        th:action="@{/students/{id}/edit(id=${studentId})}"
+        studentId: Controller에서 model.addAttribute("studentId", id) 로 전달한 DB PK
+    -->
+    <form th:action="@{/students/{id}/edit(id=${studentId})}"
+          th:object="${studentForm}" method="post">
+
+        <div class="form-group">
+            <label for="name">이름 <span class="required">*</span></label>
+            <!--
+                th:field="*{name}": 기존 값이 value 속성에 자동 설정됨
+                Controller에서 form.setName(student.getName())으로 복사했기 때문
+            -->
+            <input type="text" th:field="*{name}" placeholder="홍길동"
+                   th:classappend="${#fields.hasErrors('name')} ? 'field-error'">
+            <div class="error-msg" th:errors="*{name}">이름 에러 메시지</div>
+        </div>
+
+        <div class="form-group">
+            <label for="studentId">학번 <span class="required">*</span></label>
+            <input type="text" th:field="*{studentId}" placeholder="202300001"
+                   th:classappend="${#fields.hasErrors('studentId')} ? 'field-error'">
+            <div class="error-msg" th:errors="*{studentId}">학번 에러 메시지</div>
+        </div>
+
+        <div class="form-group">
+            <label for="email">이메일 <span class="optional">(선택)</span></label>
+            <input type="email" th:field="*{email}" placeholder="student@tukorea.ac.kr"
+                   th:classappend="${#fields.hasErrors('email')} ? 'field-error'">
+            <div class="error-msg" th:errors="*{email}">이메일 에러 메시지</div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">수정 완료</button>
+            <!-- 취소 시 상세 페이지로 이동 -->
+            <a th:href="@{/students/{id}(id=${studentId})}" class="btn">취소</a>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

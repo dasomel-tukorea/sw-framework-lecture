@@ -1,0 +1,73 @@
+<!-- [복사 위치] src/main/resources/templates/student/xssTest.html -->
+<!-- [작업] lab05 파일을 이 파일로 교체 (header/footer fragment 적용) -->
+<!--
+    Lab 06 — Fragment 적용: XSS 테스트
+    Lab 05 대비 변경: header/footer Fragment 적용
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>XSS 방어 테스트</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+    <style>
+        .xss-box { border: 2px solid; border-radius: 6px; padding: 16px; margin: 12px 0; }
+        .safe-box { border-color: #4caf50; background: #f1f8e9; }
+        .danger-box { border-color: #e53935; background: #fff5f5; }
+        .box-label { font-weight: bold; font-size: 0.85em; margin-bottom: 8px; }
+        .safe-label { color: #2e7d32; }
+        .danger-label { color: #c62828; }
+    </style>
+</head>
+<body>
+
+<header th:replace="~{fragments/layout :: header}"></header>
+
+<div class="container">
+    <h1>XSS 방어 체험 — th:text vs th:utext</h1>
+
+    <div class="alert alert-info">
+        <strong>실습:</strong>
+        아래 입력창에 <code>&lt;script&gt;alert('XSS')&lt;/script&gt;</code> 를 입력하고 제출하세요.
+    </div>
+
+    <form th:action="@{/students/xss-test}" method="post" class="xss-form">
+        <div class="form-group">
+            <label for="userInput">HTML/스크립트 입력</label>
+            <input type="text" id="userInput" name="userInput"
+                   placeholder="<script>alert('XSS')</script>"
+                   style="width: 420px;">
+        </div>
+        <button type="submit" class="btn btn-primary">제출</button>
+        <a th:href="@{/students}" class="btn" style="margin-left:8px;">목록으로</a>
+    </form>
+
+    <div th:if="${userInput != null}">
+        <h2>출력 결과 비교</h2>
+
+        <div class="xss-box safe-box">
+            <div class="box-label safe-label">✅ th:text (안전 — 이스케이프 처리)</div>
+            <code>th:text="${userInput}"</code>
+            <div style="margin-top:8px; padding:8px; background:white; border-radius:4px;">
+                <span th:text="${userInput}">출력값</span>
+            </div>
+            <small style="color:#555;">
+                HTML 소스 확인: &lt;script&gt; 가 &amp;lt;script&amp;gt; 로 이스케이프되어 있음
+            </small>
+        </div>
+
+        <div class="xss-box danger-box">
+            <div class="box-label danger-label">⚠️ th:utext (위험 — 이스케이프 없음)</div>
+            <code>th:utext="${userInput}"</code>
+            <div style="margin-top:8px; padding:8px; background:white; border-radius:4px;">
+                <span th:utext="${userInput}">출력값</span>
+            </div>
+            <small style="color:#c62828;">스크립트가 실행됩니다! 사용자 입력에 절대 사용 금지</small>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+
+</body>
+</html>

@@ -12,6 +12,7 @@
 | Week 04 | IoC/DI 실습 (인터페이스 DI, @Primary, Profile) | [week04/](week04/) |
 | Week 05 | AOP & Bean 실습 (Aspect, 생명주기, Scope, Pointcut) | [week05/](week05/) |
 | Week 06 | Spring MVC + Thymeleaf (SSR, Form 바인딩, PRG, Bean Validation, XSS 방어, Fragment) | [week06/](week06/) |
+| Week 07 | 세션 처리 & 웹 보안 기초 (HttpSession, Interceptor, BCrypt, JWT 개념, 4대 보안 위협) | [week07/](week07/) |
 
 ## 기술 스택
 

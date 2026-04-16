@@ -1,0 +1,574 @@
+### Week 07 — 세션 & 웹 보안 전체 테스트
+### IntelliJ HTTP Client: 각 요청 왼쪽 ▶ 버튼으로 개별 실행
+### 사전 조건: swframework 앱 실행 (http://localhost:8080)
+### 테스트 계정: admin / 1234, guest / 1234
+
+@baseUrl = http://localhost:8080
+
+# ══════════════════════════════════════════════════════════════
+# Lab 01 — HttpSession 로그인/로그아웃 (기본)
+# session.setAttribute / getAttribute / invalidate
+# ══════════════════════════════════════════════════════════════
+
+### [Lab01-1] GET /login — 로그인 폼 페이지
+GET {{baseUrl}}/login
+Accept: text/html
+
+> {%
+client.test("상태코드 200", function() {
+    client.assert(response.status === 200, "200 OK 기대, 실제: " + response.status);
+});
+client.test("로그인 폼 포함", function() {
+    client.assert(response.body.includes("로그인"), "로그인 페이지 제목 기대");
+});
+client.test("loginId 입력 필드 존재", function() {
+    client.assert(response.body.includes('name="loginId"'), "loginId 필드 기대");
+});
+client.test("password 입력 필드 존재", function() {
+    client.assert(response.body.includes('name="password"'), "password 필드 기대");
+});
+%}
+
+###
+
+### [Lab01-2] POST /login — 로그인 성공 (admin / 1234) → PRG 패턴
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("302 Redirect (PRG 패턴)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대, 실제: " + response.status);
+});
+client.test("Location이 /students로 리다이렉트", function() {
+    var location = response.headers.valueOf("Location");
+    client.assert(location !== null && location.includes("/students"), "Location: /students 기대, 실제: " + location);
+});
+client.test("Set-Cookie 헤더에 JSESSIONID 존재 (세션 생성)", function() {
+    var setCookie = response.headers.valueOf("Set-Cookie");
+    client.assert(setCookie !== null && setCookie.includes("JSESSIONID"), "JSESSIONID 쿠키 기대");
+});
+%}
+
+###
+
+### [Lab01-3] POST /login — 로그인 성공 (guest / 1234)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=guest&password=1234
+
+> {%
+client.test("302 Redirect", function() {
+    client.assert(response.status === 302, "302 Redirect 기대");
+});
+client.test("Location이 /students", function() {
+    var location = response.headers.valueOf("Location");
+    client.assert(location.includes("/students"), "Location: /students 기대");
+});
+%}
+
+###
+
+### [Lab01-4] POST /login — 로그인 실패 (잘못된 비밀번호)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=wrong
+
+> {%
+client.test("200 OK (redirect 아님 — 로그인 실패 시 폼 재렌더링)", function() {
+    client.assert(response.status === 200, "200 OK 기대 (302면 인증 로직 오류), 실제: " + response.status);
+});
+client.test("에러 메시지 포함", function() {
+    client.assert(response.body.includes("올바르지 않습니다"), "에러 메시지 기대");
+});
+%}
+
+###
+
+### [Lab01-5] POST /login — 로그인 실패 (존재하지 않는 아이디)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=unknown&password=1234
+
+> {%
+client.test("200 OK (로그인 실패)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("에러 메시지 포함", function() {
+    client.assert(response.body.includes("올바르지 않습니다"), "에러 메시지 기대");
+});
+%}
+
+###
+
+### [Lab01-6] POST /login — 로그인 실패 (빈 값)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=&password=
+
+> {%
+client.test("에러 응답 (400 또는 200 폼 재렌더링)", function() {
+    client.assert(response.status === 200 || response.status === 400,
+        "200 또는 400 기대, 실제: " + response.status);
+});
+%}
+
+###
+
+### [Lab01-7] POST /logout — 로그아웃 (세션 무효화)
+# ⚠️ 먼저 Lab01-2를 실행하여 로그인 상태를 만든 후 실행
+POST {{baseUrl}}/logout
+
+> {%
+client.test("302 Redirect (로그아웃 후 로그인 페이지로)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대, 실제: " + response.status);
+});
+client.test("Location이 /login으로 리다이렉트", function() {
+    var location = response.headers.valueOf("Location");
+    client.assert(location !== null && location.includes("/login"), "Location: /login 기대, 실제: " + location);
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 02 — 인터셉터 로그인 체크 (LoginInterceptor + WebConfig)
+# 비로그인 시 보호된 경로 접근 → /login으로 리다이렉트
+# excludePathPatterns: /, /login, /logout, /css/**, /js/**, /images/**, /error
+# ══════════════════════════════════════════════════════════════
+
+### [Lab02-1] GET /students — 비로그인 상태에서 접근 → 리다이렉트
+# ⚠️ 새 세션(비로그인)으로 테스트하기 위해 쿠키 없이 요청
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("302 Redirect (비로그인 → /login)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대 (200이면 인터셉터 미작동), 실제: " + response.status);
+});
+client.test("Location이 /login", function() {
+    var location = response.headers.valueOf("Location");
+    client.assert(location !== null && location.includes("/login"), "Location: /login 기대");
+});
+%}
+
+###
+
+### [Lab02-2] GET /students/1 — 비로그인 상태에서 상세 페이지 접근 → 리다이렉트
+GET {{baseUrl}}/students/1
+Accept: text/html
+
+> {%
+client.test("302 Redirect (비로그인 → /login)", function() {
+    client.assert(response.status === 302, "302 Redirect 기대, 실제: " + response.status);
+});
+%}
+
+###
+
+### [Lab02-3] GET /login — excludePathPatterns 확인 (로그인 페이지는 접근 허용)
+# /login은 인터셉터에서 제외 → 비로그인이어도 200 OK
+GET {{baseUrl}}/login
+Accept: text/html
+
+> {%
+client.test("200 OK (인터셉터 제외 경로)", function() {
+    client.assert(response.status === 200, "200 OK 기대 (302면 무한 리다이렉트 발생)");
+});
+%}
+
+###
+
+### [Lab02-4] GET / — excludePathPatterns 확인 (홈은 접근 허용)
+GET {{baseUrl}}/
+Accept: text/html
+
+> {%
+client.test("200 OK (홈 — 인터셉터 제외 경로)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+%}
+
+###
+
+### [Lab02-5] 로그인 → 보호 페이지 접근 (통합 시나리오)
+# 1단계: 로그인
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("로그인 성공 (302)", function() {
+    client.assert(response.status === 302, "302 기대");
+});
+%}
+
+###
+
+### [Lab02-6] GET /students — 로그인 상태에서 접근 → 200 OK
+# ⚠️ Lab02-5를 먼저 실행하여 세션 쿠키를 받은 상태에서 실행
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("200 OK (로그인 상태 — 인터셉터 통과)", function() {
+    client.assert(response.status === 200, "200 OK 기대 (302면 세션 문제), 실제: " + response.status);
+});
+client.test("학생 목록 페이지 렌더링", function() {
+    client.assert(response.body.includes("학생"), "학생 관련 컨텐츠 기대");
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 03 — 세션에 객체 저장 (LoginForm DTO)
+# session.setAttribute("loginUser", new LoginForm(loginId, name, role))
+# admin → ADMIN 권한, guest → USER 권한
+# ══════════════════════════════════════════════════════════════
+
+### [Lab03-1] POST /login (admin) → 세션에 LoginForm 저장 → 관리자 권한 확인
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("302 Redirect (admin 로그인 성공)", function() {
+    client.assert(response.status === 302, "302 기대");
+});
+%}
+
+###
+
+### [Lab03-2] GET /students — admin 로그인 후 화면에 관리자 정보 표시 확인
+# ⚠️ Lab03-1 실행 후 세션 쿠키가 유지된 상태에서 실행
+# Thymeleaf: ${loginUser.name} → "관리자", ${loginUser.admin} → true
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("로그인 사용자 이름 '관리자' 또는 'admin' 표시", function() {
+    client.assert(
+        response.body.includes("관리자") || response.body.includes("admin"),
+        "로그인 사용자 정보 표시 기대"
+    );
+});
+%}
+
+###
+
+### [Lab03-3] POST /login (guest) → USER 권한으로 로그인
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=guest&password=1234
+
+> {%
+client.test("302 Redirect (guest 로그인 성공)", function() {
+    client.assert(response.status === 302, "302 기대");
+});
+%}
+
+###
+
+### [Lab03-4] GET /students — guest 로그인 후 화면에 게스트 정보 표시 확인
+# ⚠️ Lab03-3 실행 후 실행
+# Thymeleaf: ${loginUser.name} → "게스트", ${loginUser.admin} → false
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("로그인 사용자 이름 '게스트' 또는 'guest' 표시", function() {
+    client.assert(
+        response.body.includes("게스트") || response.body.includes("guest"),
+        "게스트 사용자 정보 표시 기대"
+    );
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 04 — BCrypt 비밀번호 암호화 (UserRepository + PasswordUtil)
+# 하드코딩 인증 → BCrypt matches() 기반 인증
+# 의존성: spring-security-crypto
+# ══════════════════════════════════════════════════════════════
+
+### [Lab04-1] POST /login — BCrypt 인증 성공 (admin / 1234)
+# UserRepository 생성자에서 PasswordUtil.encode("1234")로 해시 등록
+# authenticate() → PasswordUtil.matches("1234", 해시값) → true
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("302 Redirect (BCrypt 인증 성공)", function() {
+    client.assert(response.status === 302, "302 기대 (200이면 BCrypt 인증 실패)");
+});
+client.test("Location이 /students", function() {
+    var location = response.headers.valueOf("Location");
+    client.assert(location.includes("/students"), "Location: /students 기대");
+});
+%}
+
+###
+
+### [Lab04-2] POST /login — BCrypt 인증 성공 (guest / 1234)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=guest&password=1234
+
+> {%
+client.test("302 Redirect (BCrypt 인증 성공)", function() {
+    client.assert(response.status === 302, "302 기대");
+});
+%}
+
+###
+
+### [Lab04-3] POST /login — BCrypt 인증 실패 (잘못된 비밀번호)
+# PasswordUtil.matches("wrong", 해시값) → false
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=wrong
+
+> {%
+client.test("200 OK (인증 실패 → 폼 재렌더링)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("에러 메시지 포함", function() {
+    client.assert(response.body.includes("올바르지 않습니다"), "에러 메시지 기대");
+});
+%}
+
+###
+
+### [Lab04-4] POST /login — BCrypt 인증 실패 (존재하지 않는 사용자)
+# UserRepository.authenticate() → users.get("hacker") == null → false
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=hacker&password=1234
+
+> {%
+client.test("200 OK (사용자 없음 → 인증 실패)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("에러 메시지 포함", function() {
+    client.assert(response.body.includes("올바르지 않습니다"), "에러 메시지 기대");
+});
+%}
+
+###
+
+### [Lab04-5] POST /login — BCrypt 인증: 대소문자 구분 확인
+# "Admin" ≠ "admin" — Map 키 비교이므로 대소문자 구분됨
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=Admin&password=1234
+
+> {%
+client.test("200 OK (대소문자 불일치 → 인증 실패)", function() {
+    client.assert(response.status === 200, "200 OK 기대 (대소문자 구분)");
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 05 — 로그인 실패 횟수 카운팅 + 계정 잠금 + 세션 타임아웃
+# MAX_FAIL_COUNT = 5, LOCK_MINUTES = 5
+# application.yml: server.servlet.session.timeout=30m
+# cookie: http-only=true, same-site=lax
+# ══════════════════════════════════════════════════════════════
+
+### [Lab05-1] POST /login — 실패 1회차 (남은 시도 메시지 확인)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=wrong1
+
+> {%
+client.test("200 OK (로그인 실패)", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("남은 시도 횟수 메시지 포함", function() {
+    client.assert(response.body.includes("남은 시도"), "남은 시도 메시지 기대");
+});
+client.test("남은 시도 4회 표시", function() {
+    client.assert(response.body.includes("4회"), "남은 시도 4회 기대");
+});
+%}
+
+###
+
+### [Lab05-2] POST /login — 실패 2회차
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=wrong2
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("남은 시도 3회 표시", function() {
+    client.assert(response.body.includes("3회"), "남은 시도 3회 기대");
+});
+%}
+
+###
+
+### [Lab05-3] POST /login — 실패 3회차
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=wrong3
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("남은 시도 2회 표시", function() {
+    client.assert(response.body.includes("2회"), "남은 시도 2회 기대");
+});
+%}
+
+###
+
+### [Lab05-4] POST /login — 실패 4회차
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=wrong4
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("남은 시도 1회 표시", function() {
+    client.assert(response.body.includes("1회"), "남은 시도 1회 기대");
+});
+%}
+
+###
+
+### [Lab05-5] POST /login — 실패 5회차 → 계정 잠금!
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=wrong5
+
+> {%
+client.test("200 OK", function() {
+    client.assert(response.status === 200, "200 OK 기대");
+});
+client.test("계정 잠금 메시지 포함", function() {
+    client.assert(response.body.includes("계정이 잠겼습니다"), "계정 잠금 메시지 기대");
+});
+client.test("5분 후 재시도 안내", function() {
+    client.assert(response.body.includes("5분"), "5분 후 재시도 메시지 기대");
+});
+%}
+
+###
+
+### [Lab05-6] POST /login — 잠금 상태에서 올바른 비밀번호로 시도 → 여전히 차단
+# ⚠️ Lab05-5 직후 실행 (5분 이내)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("200 OK (잠금 상태 — 올바른 비밀번호도 차단)", function() {
+    client.assert(response.status === 200, "200 OK 기대 (302면 잠금 로직 미작동)");
+});
+client.test("계정 잠금 메시지 유지", function() {
+    client.assert(response.body.includes("계정이 잠겼습니다"), "잠금 상태 메시지 기대");
+});
+%}
+
+###
+
+### [Lab05-7] POST /login — guest는 잠금되지 않음 (admin만 잠김)
+# admin 계정이 잠겨도 guest 계정은 독립적으로 로그인 가능
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=guest&password=1234
+
+> {%
+client.test("302 Redirect (guest 로그인 성공 — admin 잠금과 무관)", function() {
+    client.assert(response.status === 302, "302 기대 (guest는 잠금 상태가 아님)");
+});
+%}
+
+###
+
+### [Lab05-8] POST /login — 성공 시 실패 횟수 초기화 확인
+# ⚠️ 앱 재시작 후 실행 (잠금 상태 초기화)
+# 1) 2회 실패 후 → 성공 로그인 → 실패 횟수 초기화
+# 2) 다시 실패 시 "남은 시도: 4회" 표시 (0부터 다시 카운팅)
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("302 Redirect (로그인 성공 → 실패 횟수 초기화)", function() {
+    client.assert(response.status === 302, "302 기대");
+});
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 05 보충 — 세션 쿠키 보안 설정 확인
+# application.yml: http-only=true, same-site=lax
+# ══════════════════════════════════════════════════════════════
+
+### [Lab05-Cookie-1] POST /login → Set-Cookie 보안 속성 확인
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("302 Redirect", function() {
+    client.assert(response.status === 302, "302 기대");
+});
+client.test("Set-Cookie에 HttpOnly 속성 (XSS 방어)", function() {
+    var setCookie = response.headers.valueOf("Set-Cookie");
+    if (setCookie !== null) {
+        client.assert(setCookie.toLowerCase().includes("httponly"),
+            "HttpOnly 속성 기대 (JavaScript document.cookie 접근 차단)");
+    }
+});
+client.test("Set-Cookie에 SameSite 속성 (CSRF 방어)", function() {
+    var setCookie = response.headers.valueOf("Set-Cookie");
+    if (setCookie !== null) {
+        client.assert(setCookie.toLowerCase().includes("samesite"),
+            "SameSite 속성 기대 (외부 도메인 요청 시 쿠키 전송 제어)");
+    }
+});
+%}
+
+###

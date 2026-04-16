@@ -14,3 +14,4 @@ team_assignment.txt
 # IntelliJ IDEA
 .idea/
 *.iml
+/ai.md

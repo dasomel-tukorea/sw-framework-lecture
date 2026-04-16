@@ -1,0 +1,10 @@
+// Week 07 Lab 04 — BCrypt 의존성 추가
+// 기존 build.gradle의 dependencies 블록에 아래 한 줄 추가
+
+dependencies {
+    // 기존 의존성들 ...
+
+    // BCrypt 비밀번호 암호화 (spring-security-crypto 경량 모듈)
+    // 전체 Spring Security가 아닌 crypto 모듈만 가져옴
+    implementation 'org.springframework.security:spring-security-crypto'
+}

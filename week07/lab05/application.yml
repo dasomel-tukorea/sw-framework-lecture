@@ -1,0 +1,15 @@
+# Week 07 — Lab 05: 세션 타임아웃 설정
+# application.yml에 아래 내용 추가
+#
+# 세션 타임아웃: 마지막 요청으로부터 지정 시간 동안 요청이 없으면 세션 자동 만료
+# 기본값: 30분 (30m)
+# 최소값: 1분 (1m) — 1분 미만 설정 시 Spring Boot가 자동으로 1분으로 보정
+
+server:
+  servlet:
+    session:
+      timeout: 30m          # 세션 타임아웃 (기본 30분)
+      cookie:
+        http-only: true      # JavaScript에서 쿠키 접근 차단 (XSS 방어)
+        # secure: true       # HTTPS에서만 쿠키 전송 (운영 환경에서 활성화)
+        same-site: lax       # 외부 도메인 요청 시 쿠키 전송 제어 (CSRF 방어)

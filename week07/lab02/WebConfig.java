@@ -38,7 +38,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/", "/login", "/logout",     // 홈, 로그인/로그아웃 페이지
                         "/css/**", "/js/**",          // 정적 리소스 (CSS, JavaScript)
                         "/images/**",                 // 정적 리소스 (이미지)
-                        "/error"                      // Spring Boot 기본 에러 페이지
+                        "/error",                     // Spring Boot 기본 에러 페이지
+                        "/active-sessions"            // lab05 — 활성 세션 목록
                 );
     }
 

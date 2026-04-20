@@ -92,9 +92,11 @@ ConflictingBeanDefinitionException:
 ```
 src/main/java/kr/ac/tukorea/swframework/
 ├── controller/
-│   └── LoginController.java       ← lab01 신규, lab03~05 순차 확장
+│   ├── LoginController.java       ← lab01 신규, lab03~05 순차 확장
+│   └── SessionController.java     ← lab05 신규 (활성 세션 목록 조회 REST)
 ├── config/
-│   └── WebConfig.java             ← lab02 신규 (인터셉터 등록)
+│   ├── WebConfig.java             ← lab02 신규, lab05 /active-sessions 예외 추가
+│   └── SessionListener.java       ← lab05 신규 (HttpSessionListener — 세션 추적)
 ├── interceptor/
 │   └── LoginInterceptor.java      ← lab02 신규 (로그인 체크)
 ├── dto/
@@ -132,6 +134,9 @@ week07/
 | | `LoginController.java` → `controller/` | UserRepository 생성자 주입 + BCrypt 인증 |
 | **Lab 05** | `LoginController.java` → `controller/` | 실패 횟수 카운팅 + 계정 잠금 |
 | | `application.yml` → `resources/` | 세션 타임아웃 + 쿠키 보안 설정 추가 |
+| | `SessionListener.java` → `config/` | HttpSessionListener — 활성 세션 수집 |
+| | `SessionController.java` → `controller/` | `/active-sessions` — 서버 세션 목록 JSON 조회 |
+| | `WebConfig.java` → `config/` | `/active-sessions` 경로를 인터셉터에서 제외 |
 
 ---
 
@@ -332,6 +337,61 @@ server:
 
 ---
 
+### Lab 05-보너스 — 서버 세션 목록 조회 (브라우저 쿠키 vs 서버 세션)
+
+**목표:** 브라우저에 남아 있는 `JSESSIONID` 쿠키와, 서버가 실제로 보관하고 있는 세션이 **서로 다른 저장소**임을 눈으로 확인한다.
+
+**추가 파일:**
+- `config/SessionListener.java` — `HttpSessionListener`로 `sessionCreated`/`sessionDestroyed`를 가로채 `ConcurrentHashMap`에 활성 세션을 축적
+- `controller/SessionController.java` — `/active-sessions` 엔드포인트에서 서버 측 세션 목록을 JSON으로 반환
+- `config/WebConfig.java` — `/active-sessions`를 인터셉터 `excludePathPatterns`에 추가 (로그인 없이도 목록 확인 가능)
+
+**핵심 코드:**
+
+```java
+// SessionListener.java — 세션 이벤트로 활성 세션 추적
+@Component
+public class SessionListener implements HttpSessionListener {
+    private static final Map<String, HttpSession> activeSessions = new ConcurrentHashMap<>();
+
+    @Override public void sessionCreated(HttpSessionEvent se) {
+        activeSessions.put(se.getSession().getId(), se.getSession());
+    }
+    @Override public void sessionDestroyed(HttpSessionEvent se) {
+        activeSessions.remove(se.getSession().getId());
+    }
+    public static Map<String, HttpSession> getActiveSessions() { return activeSessions; }
+}
+```
+
+```java
+// SessionController.java — 활성 세션 목록 JSON으로 반환
+@GetMapping("/active-sessions")
+public List<String> getActiveSessions() { ... }
+```
+
+**확인 시나리오 (브라우저 쿠키 ≠ 서버 세션):**
+
+| 단계 | 동작 | 브라우저 `JSESSIONID` | 서버 `/active-sessions` |
+|------|------|----------------------|--------------------------|
+| 1 | `/login` 접속 | 신규 쿠키 발급 | 세션 1개 등장 |
+| 2 | 로그인 성공 | 동일 값 유지 | `loginUser` 속성 채워짐 |
+| 3 | **서버에서 `/logout`** (`session.invalidate()`) | 쿠키는 **여전히 남음** | 해당 세션 **사라짐** |
+| 4 | 새로고침 후 `/active-sessions` 조회 | 오래된 쿠키 그대로 | 목록에서 제거됨 확인 |
+| 5 | 개발자 도구 → Application → Cookies에서 `JSESSIONID` 수동 삭제 | 삭제됨 | 변화 없음 (서버는 이미 없음) |
+
+**개념 포인트:**
+- **쿠키(JSESSIONID)** = 브라우저에 저장되는 "세션 열쇠"일 뿐, 실제 세션 데이터가 아님
+- **세션 객체** = 서버(WAS) 메모리에 저장, `invalidate()` 즉시 소멸
+- 로그아웃 후 쿠키가 남아 있어도, 서버에 매칭되는 세션이 없으면 `request.getSession(false)`는 `null` → 인증 실패
+
+**실습 URL:**
+- [http://localhost:8080/active-sessions](http://localhost:8080/active-sessions) — 현재 서버가 보관 중인 세션 목록 (JSON)
+- 2개의 브라우저(또는 시크릿 창)로 각각 로그인 → 목록에 세션 2개 표시 확인
+- 한쪽에서 `/logout` → 목록에서 해당 세션만 제거되는지 확인
+
+---
+
 ## 전체 URL 목록
 
 | HTTP | URL | 설명 | Lab |
@@ -340,6 +400,7 @@ server:
 | POST | /login | 로그인 처리 | 01 |
 | POST | /logout | 로그아웃 처리 | 01 |
 | GET | [/students](http://localhost:8080/students) | 학생 목록 (로그인 필요) | 02 |
+| GET | [/active-sessions](http://localhost:8080/active-sessions) | 서버 보관 중인 활성 세션 목록 (JSON) | 05 |
 
 ---
 
@@ -353,6 +414,8 @@ server:
 - [ ] 로그아웃 후 JSESSIONID 쿠키 삭제 확인
 - [ ] 서버 콘솔에 BCrypt 초기화 로그 출력 확인 (Lab 04)
 - [ ] 5회 실패 시 계정 잠금 메시지 표시 (Lab 05)
+- [ ] `/active-sessions`에서 활성 세션 JSON이 보이는가? (Lab 05 보너스)
+- [ ] 로그아웃 후 브라우저 쿠키는 남아 있지만 서버 세션은 제거되는 것을 확인했는가?
 
 ---
 

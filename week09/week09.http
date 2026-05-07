@@ -1,22 +1,49 @@
 ### Week 09 — Java DB & MyBatis 전체 테스트
 ### IntelliJ HTTP Client: 각 요청 왼쪽 ▶ 버튼으로 개별 실행
-### 사전 조건: swframework 앱 실행 + lab01 코드 적용
-###    MySQL 모드: ./gradlew bootRun
-###    H2 모드   : ./gradlew bootRun --args='--spring.profiles.active=h2'
+### 본 프로젝트는 W07 LoginInterceptor가 활성이므로 [Login]을 가장 먼저 실행해 세션을 획득해야 한다.
+### 사전 조건:
+###   MySQL 모드: ./gradlew bootRun --args='--spring.profiles.active=mysql'
+###     (도커 컨테이너 비밀번호와 application-mysql.yml의 1234가 다르면
+###      SPRING_DATASOURCE_PASSWORD=<실제비번> ./gradlew bootRun ... 으로 오버라이드)
+###   H2 모드   : ./gradlew bootRun --args='--spring.profiles.active=h2'
 
 @baseUrl = http://localhost:8080
+
+# ══════════════════════════════════════════════════════════════
+# [Login] 세션 획득 (LoginInterceptor 통과)
+# ══════════════════════════════════════════════════════════════
+
+### [Login] admin 계정으로 로그인 → JSESSIONID 쿠키 획득
+# @no-redirect
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("로그인 후 redirect", () =>
+    client.assert([302, 303].includes(response.status)));
+client.test("Location: /students", () =>
+    client.assert(response.headers.valueOf("Location").endsWith("/students")));
+%}
+
+###
 
 # ══════════════════════════════════════════════════════════════
 # Lab 01 — 학생 CRUD 5계층
 # ══════════════════════════════════════════════════════════════
 
-### [Lab01-1] 목록 — 3건 표시
+### [Lab01-1] 목록 — 3건 표시 (DataInitializer가 초기 3건 INSERT)
 GET {{baseUrl}}/students
 Accept: text/html
 
 > {%
 client.test("상태코드 200", () => client.assert(response.status === 200));
 client.test("학생 목록 페이지", () => client.assert(response.body.includes("학생")));
+client.test("초기 3건 표시", () =>
+    client.assert(response.body.includes("홍길동") &&
+                  response.body.includes("김영희") &&
+                  response.body.includes("이철수")));
 %}
 
 ###
@@ -28,21 +55,30 @@ Accept: text/html
 > {%
 client.test("폼 페이지", () => client.assert(response.status === 200));
 client.test("name input", () => client.assert(response.body.includes('name="name"')));
+client.test("studentId input", () => client.assert(response.body.includes('name="studentId"')));
 %}
 
 ###
 
-### [Lab01-3] 등록 (POST) → PRG 패턴 (302 Redirect)
+### [Lab01-3] 등록 (POST) → PRG 패턴 (302 Redirect → /students/{id})
+###   현재 프로젝트의 StudentForm 검증 규칙:
+###     name       — NotBlank, 2~20자
+###     studentId  — NotBlank, 9자리 숫자
+###     email      — 이메일 형식 (선택)
+# @no-redirect
 POST {{baseUrl}}/students
 Content-Type: application/x-www-form-urlencoded
 
-name=박지성&email=park@tukorea.ac.kr&major=IT경영전공
+name=박지성&studentId=202300004&email=park@tukorea.ac.kr
 
 > {%
 client.test("Redirect 302/303", () =>
     client.assert([302, 303].includes(response.status)));
-client.test("Location: /students", () =>
-    client.assert(response.headers.valueOf("Location").endsWith("/students")));
+client.test("Location: /students/{id}", () =>
+    client.assert(/\/students\/\d+$/.test(response.headers.valueOf("Location"))));
+// 새로 생성된 학생 ID를 다음 요청(Lab01-5)에서 사용하도록 글로벌 변수에 저장
+const m = response.headers.valueOf("Location").match(/\/students\/(\d+)$/);
+if (m) client.global.set("newStudentId", m[1]);
 %}
 
 ###
@@ -52,12 +88,14 @@ GET {{baseUrl}}/students/1/edit
 
 > {%
 client.test("수정 폼 페이지", () => client.assert(response.status === 200));
+client.test("기존 값 prefill", () => client.assert(response.body.includes("홍길동")));
 %}
 
 ###
 
-### [Lab01-5] 삭제 (id=4 — 직전에 등록한 박지성)
-POST {{baseUrl}}/students/4/delete
+### [Lab01-5] 삭제 (직전 [Lab01-3]에서 생성된 newStudentId 사용)
+# @no-redirect
+POST {{baseUrl}}/students/{{newStudentId}}/delete
 
 > {%
 client.test("Redirect", () => client.assert([302, 303].includes(response.status)));
@@ -75,6 +113,9 @@ GET {{baseUrl}}/students/search?type=name&keyword=홍
 > {%
 client.test("검색 동작", () => client.assert(response.status === 200));
 client.test("홍길동 포함", () => client.assert(response.body.includes("홍길동")));
+client.test("타학생 미포함", () =>
+    client.assert(!response.body.includes("<td>김영희</td>") &&
+                  !response.body.includes("<td>이철수</td>")));
 %}
 
 ###
@@ -84,6 +125,10 @@ GET {{baseUrl}}/students/search?type=email&keyword=tukorea
 
 > {%
 client.test("이메일 검색", () => client.assert(response.status === 200));
+client.test("3건 모두 매칭", () =>
+    client.assert(response.body.includes("홍길동") &&
+                  response.body.includes("김영희") &&
+                  response.body.includes("이철수")));
 %}
 
 ###
@@ -102,30 +147,65 @@ GET {{baseUrl}}/students/by-ids?ids=1,2,3
 
 > {%
 client.test("다건 조회", () => client.assert(response.status === 200));
+client.test("3건 표시", () =>
+    client.assert(response.body.includes("홍길동") &&
+                  response.body.includes("김영희") &&
+                  response.body.includes("이철수")));
 %}
 
 ###
 
 # ══════════════════════════════════════════════════════════════
-# Lab 04 — H2 프로필 (별도 실행 필요)
+# Lab 04 — H2 프로필 (h2 모드로 별도 실행 시에만 의미)
 # ══════════════════════════════════════════════════════════════
 
-### [Lab04-1] H2 Console 접속 (브라우저용 — HTTP Client에서는 페이지만 확인)
+### [Lab04-1] H2 Console 접속 (h2 프로필에서만 활성)
 GET {{baseUrl}}/h2-console
 Accept: text/html
 
 > {%
-client.test("H2 Console 응답", () => client.assert(response.status === 200));
+// h2 프로필이면 200, mysql 프로필이면 LoginInterceptor에 의해 302 또는 404
+client.test("응답 도달", () =>
+    client.assert([200, 302, 404].includes(response.status)));
 %}
 
 ###
 
-### [Lab04-2] H2 모드에서도 학생 목록 동일하게 동작
+### [Lab04-2] 같은 코드, 같은 응답 (학생 목록)
 GET {{baseUrl}}/students
 Accept: text/html
 
 > {%
 client.test("같은 코드, 같은 응답", () => client.assert(response.status === 200));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# 보너스 — 추가 동적 SQL 검증
+# ══════════════════════════════════════════════════════════════
+
+### [Bonus-1] /api/students JSON 응답
+GET {{baseUrl}}/api/students
+Accept: application/json
+
+> {%
+client.test("API 200", () => client.assert(response.status === 200));
+client.test("배열 응답", () => client.assert(Array.isArray(response.body)));
+client.test("studentId 필드 존재", () =>
+    client.assert(response.body.length === 0 ||
+                  response.body[0].hasOwnProperty("studentId")));
+%}
+
+###
+
+### [Bonus-2] /api/students/{id} 단건
+GET {{baseUrl}}/api/students/1
+Accept: application/json
+
+> {%
+client.test("단건 200", () => client.assert(response.status === 200));
+client.test("name=홍길동", () => client.assert(response.body.name === "홍길동"));
 %}
 
 ###

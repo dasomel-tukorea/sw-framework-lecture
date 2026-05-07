@@ -1,0 +1,17 @@
+# application-mysql.yml — MySQL 8.x 프로필 설정
+# Week 09 — MyBatis CRUD
+# 경로: src/main/resources/application-mysql.yml
+# 실행: --spring.profiles.active=mysql
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/swframework?sslMode=DISABLED&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: root
+    password: 1234
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: kr.ac.tukorea.swframework.domain
+  configuration:
+    map-underscore-to-camel-case: true    # DB: created_at → Java: createdAt 자동 변환

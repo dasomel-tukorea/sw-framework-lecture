@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  Lab 04 — 게시판 실전 Mapper (sw-framework-demo 참고)
+  핵심 패턴
+    1. <sql> + <include> — 검색 조건 재사용 (list / count 양쪽에서)
+    2. <choose>로 정렬 분기
+    3. LIMIT/OFFSET 페이징 (W11에서 본격 활용)
+-->
+<mapper namespace="kr.ac.tukorea.swframework.mapper.BoardMapper">
+
+    <!-- ============================================ -->
+    <!-- 공통 검색 조건 (재사용)                        -->
+    <!-- ============================================ -->
+    <sql id="searchCondition">
+        <where>
+            <if test="searchType == 'title' and keyword != null and keyword != ''">
+                AND title LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="searchType == 'content' and keyword != null and keyword != ''">
+                AND content LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="searchType == 'author' and keyword != null and keyword != ''">
+                AND author = #{keyword}
+            </if>
+        </where>
+    </sql>
+
+    <!-- ============================================ -->
+    <!-- 게시글 목록 — 검색 + 정렬 + 페이징            -->
+    <!-- 같은 <searchCondition>이 list와 count에 재사용 -->
+    <!-- ============================================ -->
+    <select id="findAllWithPaging" parameterType="PageDTO" resultType="BoardDTO">
+        SELECT id, title, content, author, created_at, updated_at
+        FROM board
+        <include refid="searchCondition"/>
+        ORDER BY
+        <choose>
+            <when test="sortBy == 'title'">title ASC</when>
+            <when test="sortBy == 'author'">author ASC</when>
+            <otherwise>id DESC</otherwise>
+        </choose>
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- ============================================ -->
+    <!-- 전체 게시글 수 — 페이지 계산용                -->
+    <!-- ============================================ -->
+    <select id="countAll" parameterType="PageDTO" resultType="int">
+        SELECT COUNT(*) FROM board
+        <include refid="searchCondition"/>
+    </select>
+
+    <!-- ============================================ -->
+    <!-- 기본 CRUD                                     -->
+    <!-- ============================================ -->
+    <select id="findById" parameterType="long" resultType="BoardDTO">
+        SELECT id, title, content, author, created_at, updated_at
+        FROM board WHERE id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="BoardDTO">
+        INSERT INTO board (title, content, author)
+        VALUES (#{title}, #{content}, #{author})
+    </insert>
+
+    <update id="update" parameterType="BoardDTO">
+        UPDATE board
+        SET title = #{title}, content = #{content}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete" parameterType="long">
+        DELETE FROM board WHERE id = #{id}
+    </delete>
+
+</mapper>

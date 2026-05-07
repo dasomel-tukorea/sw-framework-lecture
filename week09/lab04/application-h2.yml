@@ -1,0 +1,25 @@
+# application-h2.yml — H2 인메모리 DB 프로필 설정
+# Week 09 — MyBatis CRUD
+# 경로: src/main/resources/application-h2.yml
+# 실행: --spring.profiles.active=h2
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:swframework
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true          # http://localhost:8080/h2-console 접속 가능
+      path: /h2-console
+  sql:
+    init:
+      mode: always           # 앱 시작 시 data.sql 자동 실행
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: kr.ac.tukorea.swframework.domain
+  configuration:
+    map-underscore-to-camel-case: true    # DB: created_at → Java: createdAt 자동 변환
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # SQL 로그 출력 (개발용)

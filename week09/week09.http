@@ -1,0 +1,131 @@
+### Week 09 — Java DB & MyBatis 전체 테스트
+### IntelliJ HTTP Client: 각 요청 왼쪽 ▶ 버튼으로 개별 실행
+### 사전 조건: swframework 앱 실행 + lab01 코드 적용
+###    MySQL 모드: ./gradlew bootRun
+###    H2 모드   : ./gradlew bootRun --args='--spring.profiles.active=h2'
+
+@baseUrl = http://localhost:8080
+
+# ══════════════════════════════════════════════════════════════
+# Lab 01 — 학생 CRUD 5계층
+# ══════════════════════════════════════════════════════════════
+
+### [Lab01-1] 목록 — 3건 표시
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("상태코드 200", () => client.assert(response.status === 200));
+client.test("학생 목록 페이지", () => client.assert(response.body.includes("학생")));
+%}
+
+###
+
+### [Lab01-2] 등록 폼
+GET {{baseUrl}}/students/new
+Accept: text/html
+
+> {%
+client.test("폼 페이지", () => client.assert(response.status === 200));
+client.test("name input", () => client.assert(response.body.includes('name="name"')));
+%}
+
+###
+
+### [Lab01-3] 등록 (POST) → PRG 패턴 (302 Redirect)
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=박지성&email=park@tukorea.ac.kr&major=IT경영전공
+
+> {%
+client.test("Redirect 302/303", () =>
+    client.assert([302, 303].includes(response.status)));
+client.test("Location: /students", () =>
+    client.assert(response.headers.valueOf("Location").endsWith("/students")));
+%}
+
+###
+
+### [Lab01-4] 수정 폼 (id=1)
+GET {{baseUrl}}/students/1/edit
+
+> {%
+client.test("수정 폼 페이지", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab01-5] 삭제 (id=4 — 직전에 등록한 박지성)
+POST {{baseUrl}}/students/4/delete
+
+> {%
+client.test("Redirect", () => client.assert([302, 303].includes(response.status)));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 03 — Dynamic SQL (검색)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab03-1] 이름 검색 — '홍'
+GET {{baseUrl}}/students/search?type=name&keyword=홍
+
+> {%
+client.test("검색 동작", () => client.assert(response.status === 200));
+client.test("홍길동 포함", () => client.assert(response.body.includes("홍길동")));
+%}
+
+###
+
+### [Lab03-2] 이메일 검색 — 'tukorea'
+GET {{baseUrl}}/students/search?type=email&keyword=tukorea
+
+> {%
+client.test("이메일 검색", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab03-3] 검색어 없음 — 전체 조회
+GET {{baseUrl}}/students/search
+
+> {%
+client.test("전체 조회", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab03-4] 다건 조회 (foreach IN 절)
+GET {{baseUrl}}/students/by-ids?ids=1,2,3
+
+> {%
+client.test("다건 조회", () => client.assert(response.status === 200));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 04 — H2 프로필 (별도 실행 필요)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab04-1] H2 Console 접속 (브라우저용 — HTTP Client에서는 페이지만 확인)
+GET {{baseUrl}}/h2-console
+Accept: text/html
+
+> {%
+client.test("H2 Console 응답", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab04-2] H2 모드에서도 학생 목록 동일하게 동작
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("같은 코드, 같은 응답", () => client.assert(response.status === 200));
+%}
+
+###

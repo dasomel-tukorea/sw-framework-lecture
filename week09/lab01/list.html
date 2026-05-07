@@ -1,0 +1,44 @@
+<!-- list.html — 학생 목록 화면 -->
+<!-- Week 09 — MyBatis CRUD -->
+<!-- 경로: src/main/resources/templates/student/list.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 목록</title>
+</head>
+<body>
+    <h1>학생 목록</h1>
+    <a th:href="@{/students/new}">+ 학생 등록</a>
+
+    <table border="1" style="margin-top: 10px;">
+        <thead>
+            <tr>
+                <th>번호</th><th>이름</th><th>이메일</th><th>전공</th><th>관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- th:each — 반복 출력: students에서 하나씩 꺼내 student 변수에 담음 -->
+            <tr th:each="student : ${students}">
+                <td th:text="${student.id}"></td>
+                <td th:text="${student.name}"></td>
+                <td th:text="${student.email}"></td>
+                <td th:text="${student.major}"></td>
+                <td>
+                    <a th:href="@{/students/{id}/edit(id=${student.id})}">수정</a>
+                    <!-- 삭제는 POST 요청 (Form으로 처리) -->
+                    <form th:action="@{/students/{id}/delete(id=${student.id})}"
+                          method="post" style="display:inline;">
+                        <button type="submit" style="color:red; background:none; border:none; cursor:pointer;"
+                                onclick="return confirm('정말 삭제하시겠습니까?');">삭제</button>
+                    </form>
+                </td>
+            </tr>
+            <!-- 학생이 없을 때 표시 -->
+            <tr th:if="${#lists.isEmpty(students)}">
+                <td colspan="5">등록된 학생이 없습니다.</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

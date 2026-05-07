@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  Lab 02 — Dynamic SQL 심화
+  lab01/StudentMapper.xml 의 <mapper> 안에 아래 5개 SQL을 추가한다.
+  (CRUD 4개와 namespace는 lab01과 동일)
+-->
+<mapper namespace="kr.ac.tukorea.swframework.mapper.StudentMapper">
+
+    <!-- ============================================ -->
+    <!-- 공통 SELECT 절 — 재사용을 위해 <sql>로 분리   -->
+    <!-- 데모 코드의 BoardMapper.xml 패턴 참고          -->
+    <!-- ============================================ -->
+    <sql id="studentColumns">
+        id, name, email, major, created_at
+    </sql>
+
+    <!-- ============================================ -->
+    <!-- ① <if> + <where> — 단일 조건 검색            -->
+    <!-- 빈 keyword면 WHERE 절 자체를 생략             -->
+    <!-- ============================================ -->
+    <select id="findByName" resultType="Student">
+        SELECT <include refid="studentColumns"/>
+        FROM student
+        <where>
+            <if test="name != null and name != ''">
+                name LIKE CONCAT('%', #{name}, '%')
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- ============================================ -->
+    <!-- ② <choose> / <when> / <otherwise>            -->
+    <!-- Java의 switch-case와 동일한 분기              -->
+    <!-- ============================================ -->
+    <select id="findBySearchType" resultType="Student">
+        SELECT <include refid="studentColumns"/>
+        FROM student
+        <where>
+            <choose>
+                <when test="searchType == 'name' and keyword != null and keyword != ''">
+                    name LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <when test="searchType == 'email' and keyword != null and keyword != ''">
+                    email LIKE CONCAT('%', #{keyword}, '%')
+                </when>
+                <otherwise>
+                    <!-- 검색어 없거나 알 수 없는 type → 전체 -->
+                    1=1
+                </otherwise>
+            </choose>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!-- ============================================ -->
+    <!-- ③ <set> — UPDATE 부분 컬럼만 변경             -->
+    <!-- 마지막 쉼표 자동 제거                          -->
+    <!-- 모든 if가 false면 SQL 오류 발생 → 1개 이상 필수 -->
+    <!-- ============================================ -->
+    <update id="updateSelective" parameterType="Student">
+        UPDATE student
+        <set>
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="email != null and email != ''">email = #{email},</if>
+            <if test="major != null and major != ''">major = #{major},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <!-- ============================================ -->
+    <!-- ④ <foreach> — IN 절 (다건 조회)              -->
+    <!-- separator로 콤마 자동 처리                     -->
+    <!-- ============================================ -->
+    <select id="findByIds" resultType="Student">
+        SELECT <include refid="studentColumns"/>
+        FROM student
+        WHERE id IN
+        <foreach item="id" collection="ids"
+                 open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY id DESC
+    </select>
+
+    <!-- ============================================ -->
+    <!-- ⑤ <foreach> — 배치 INSERT                    -->
+    <!-- 단건 INSERT를 N번 호출하는 것보다 빠름         -->
+    <!-- ============================================ -->
+    <insert id="insertBatch" parameterType="list">
+        INSERT INTO student (name, email, major)
+        VALUES
+        <foreach item="s" collection="list" separator=",">
+            (#{s.name}, #{s.email}, #{s.major})
+        </foreach>
+    </insert>
+
+    <!-- ============================================ -->
+    <!-- ⑥ <trim> — WHERE/SET 외 특수 접두사·접미사    -->
+    <!-- prefixOverrides로 'AND '/'OR ' 자동 제거       -->
+    <!-- ============================================ -->
+    <select id="findByCondition" resultType="Student">
+        SELECT <include refid="studentColumns"/>
+        FROM student
+        <trim prefix="WHERE" prefixOverrides="AND |OR ">
+            <if test="name != null and name != ''">
+                AND name LIKE CONCAT('%', #{name}, '%')
+            </if>
+            <if test="major != null and major != ''">
+                AND major = #{major}
+            </if>
+        </trim>
+        ORDER BY id DESC
+    </select>
+
+</mapper>

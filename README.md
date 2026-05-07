@@ -13,6 +13,20 @@
 | Week 05 | AOP & Bean 실습 (Aspect, 생명주기, Scope, Pointcut) | [week05/](week05/) |
 | Week 06 | Spring MVC + Thymeleaf (SSR, Form 바인딩, PRG, Bean Validation, XSS 방어, Fragment) | [week06/](week06/) |
 | Week 07 | 세션 처리 & 웹 보안 기초 (HttpSession, Interceptor, BCrypt, JWT 개념, 4대 보안 위협) | [week07/](week07/) |
+| Week 09 | Java DB 프로그래밍 & MyBatis (JDBC 통증 → SQL Mapper, HikariCP, `#{}/${}`, Spring Profile, 팀 ERD 1차) | [week09/](week09/) |
+
+### Week 09 상세 — Lab 구성
+
+| Lab | 주제 | 산출물 | 시간 |
+|---|---|---|---|
+| 01 | 학생 CRUD 5계층 (그린필드) | Controller/Service/Mapper(I/F+XML)/Templates | 30분 |
+| 02 | Spring Data JDBC → MyBatis 마이그레이션 | 본인 swframework(W06)에 적용 | 20분 |
+| 03 | Dynamic SQL 5종 | `<if>` `<choose>` `<set>` `<foreach>` `<trim>` | 25분 |
+| 04 | H2 프로필 전환 | application-h2.yml + Console | 20분 |
+| 05 | 게시판 DTO 패턴 (선택) | BoardDTO + 페이징 | 25분 |
+| 06 | 팀 ERD 작성 (과제) | docs/W09_ERD.md (Mermaid + DDL) | 20분 |
+
+> Week 08은 팀 프로젝트 분석 단계 (FR/NFR · MoSCoW · 요구사항 정의서). Week 09는 그 분석 결과를 **테이블 설계·구현으로 옮기는 첫 주**.
 
 ## 기술 스택
 

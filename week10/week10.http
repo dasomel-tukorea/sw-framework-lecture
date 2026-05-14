@@ -1,0 +1,254 @@
+### Week 10 — Spring MVC 패턴 전체 테스트 (swframework 실 엔드포인트 기준)
+### IntelliJ HTTP Client: 각 요청 왼쪽 ▶ 버튼으로 개별 실행
+### 본 프로젝트는 W07 LoginInterceptor 활성 — [Login]을 가장 먼저 실행해 세션 획득.
+### 사전 조건:
+###   H2 모드   : ./gradlew bootRun --args='--spring.profiles.active=h2'
+###   MySQL 모드: ./gradlew bootRun --args='--spring.profiles.active=mysql'
+
+@baseUrl = http://localhost:8080
+
+# ══════════════════════════════════════════════════════════════
+# [Login] 세션 획득 (LoginInterceptor 통과)
+# ══════════════════════════════════════════════════════════════
+
+### [Login] admin 계정으로 로그인 → JSESSIONID 쿠키 획득
+# @no-redirect
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("로그인 후 redirect", () =>
+    client.assert([302, 303].includes(response.status)));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 01 — 학생 CRUD (W10 swframework 적용)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab01-1] 목록 — DataInitializer가 초기 3건 INSERT
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("상태코드 200", () => client.assert(response.status === 200));
+client.test("초기 3건 표시", () =>
+    client.assert(response.body.includes("홍길동") &&
+                  response.body.includes("김영희") &&
+                  response.body.includes("이철수")));
+%}
+
+###
+
+### [Lab01-2] 등록 폼
+GET {{baseUrl}}/students/new
+
+> {%
+client.test("폼 페이지", () => client.assert(response.status === 200));
+client.test("name input", () => client.assert(response.body.includes('name="name"')));
+client.test("studentId input", () => client.assert(response.body.includes('name="studentId"')));
+%}
+
+###
+
+### [Lab01-3] 정상 등록 → PRG (302 Redirect → /students/{id})
+# @no-redirect
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=박지성&studentId=202300004&email=park@tukorea.ac.kr
+
+> {%
+client.test("Redirect 302/303", () =>
+    client.assert([302, 303].includes(response.status)));
+client.test("Location: /students/{id}", () =>
+    client.assert(/\/students\/\d+$/.test(response.headers.valueOf("Location"))));
+const m = response.headers.valueOf("Location").match(/\/students\/(\d+)$/);
+if (m) client.global.set("newStudentId", m[1]);
+%}
+
+###
+
+### [Lab01-4] 상세 조회 (방금 생성된 학생)
+GET {{baseUrl}}/students/{{newStudentId}}
+
+> {%
+client.test("상세 200", () => client.assert(response.status === 200));
+client.test("박지성 표시", () => client.assert(response.body.includes("박지성")));
+%}
+
+###
+
+### [Lab01-5] 삭제 (직전 생성된 학생)
+# @no-redirect
+POST {{baseUrl}}/students/{{newStudentId}}/delete
+
+> {%
+client.test("삭제 후 redirect", () => client.assert([302, 303].includes(response.status)));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 02 — 전역 예외 처리 (@ControllerAdvice)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab02-1] 존재하지 않는 학생 → 커스텀 404
+###  GlobalExceptionHandler 적용 전: Spring 기본 500 흰 화면
+###  적용 후: error/404.html 커스텀 페이지
+GET {{baseUrl}}/students/99999
+Accept: text/html
+
+> {%
+// 404.html이 정상 렌더링되면 status 200 (View 응답)
+client.test("응답 도달", () =>
+    client.assert([200, 404, 500].includes(response.status)));
+// 적용 후 검증
+client.test("커스텀 404 메시지 포함", () =>
+    client.assert(response.body.includes("찾을 수 없") ||
+                  response.body.includes("404")));
+%}
+
+###
+
+### [Lab02-2] API 단건 — 존재하지 않는 ID
+###  StudentApiController가 RuntimeException 던짐 → 500
+###  (REST는 별도 @ExceptionHandler로 JSON 응답 권장 — 본 lab은 MVC 위주)
+GET {{baseUrl}}/api/students/99999
+Accept: application/json
+
+> {%
+client.test("응답 도달", () =>
+    client.assert([200, 404, 500].includes(response.status)));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 03 — Bean Validation (StudentForm 검증)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab03-1] 빈 이름 → @NotBlank 실패 → 폼 재렌더링 (200)
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=&studentId=202300999&email=test@test.com
+
+> {%
+client.test("검증 실패 → 폼 재렌더링 (200)", () =>
+    client.assert(response.status === 200));
+client.test("name 에러 메시지", () =>
+    client.assert(response.body.includes("이름") &&
+                  (response.body.includes("필수") || response.body.includes("error"))));
+%}
+
+###
+
+### [Lab03-2] 학번 8자리 → @Pattern 실패
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=홍길동테스트&studentId=20230099&email=test@test.com
+
+> {%
+client.test("Pattern 검증 실패 → 폼 재렌더링", () =>
+    client.assert(response.status === 200));
+client.test("학번 에러 메시지", () =>
+    client.assert(response.body.includes("9자리") ||
+                  response.body.includes("학번")));
+%}
+
+###
+
+### [Lab03-3] 잘못된 이메일 → @Email 실패
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=홍길동테스트&studentId=202300888&email=not-an-email
+
+> {%
+client.test("Email 검증 실패", () =>
+    client.assert(response.status === 200));
+client.test("이메일 에러 메시지", () =>
+    client.assert(response.body.includes("이메일") ||
+                  response.body.includes("형식")));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 04 — Dynamic SQL 검색 (W09 lab03 재사용)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab04-1] 이름 검색 — '홍'
+GET {{baseUrl}}/students/search?type=name&keyword=홍
+
+> {%
+client.test("검색 200", () => client.assert(response.status === 200));
+client.test("홍길동 포함", () => client.assert(response.body.includes("홍길동")));
+%}
+
+###
+
+### [Lab04-2] 이메일 검색 — 'tukorea'
+GET {{baseUrl}}/students/search?type=email&keyword=tukorea
+
+> {%
+client.test("이메일 검색", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab04-3] 검색어 없음 → 전체 조회
+GET {{baseUrl}}/students/search
+
+> {%
+client.test("전체 조회", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab04-4] 다건 조회 (foreach IN 절)
+GET {{baseUrl}}/students/by-ids?ids=1,2,3
+
+> {%
+client.test("다건 조회", () => client.assert(response.status === 200));
+client.test("3건 모두", () =>
+    client.assert(response.body.includes("홍길동") &&
+                  response.body.includes("김영희") &&
+                  response.body.includes("이철수")));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 05 — API 응답 (StudentApiController)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab05-1] /api/students JSON 응답
+GET {{baseUrl}}/api/students
+Accept: application/json
+
+> {%
+client.test("API 200", () => client.assert(response.status === 200));
+client.test("배열 응답", () => client.assert(Array.isArray(response.body)));
+client.test("studentId 필드 존재", () =>
+    client.assert(response.body.length === 0 ||
+                  response.body[0].hasOwnProperty("studentId")));
+%}
+
+###
+
+### [Lab05-2] /api/students/{id} 단건
+GET {{baseUrl}}/api/students/1
+Accept: application/json
+
+> {%
+client.test("단건 200", () => client.assert(response.status === 200));
+client.test("name=홍길동", () => client.assert(response.body.name === "홍길동"));
+%}
+
+###

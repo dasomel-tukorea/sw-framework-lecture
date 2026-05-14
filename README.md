@@ -14,6 +14,7 @@
 | Week 06 | Spring MVC + Thymeleaf (SSR, Form 바인딩, PRG, Bean Validation, XSS 방어, Fragment) | [week06/](week06/) |
 | Week 07 | 세션 처리 & 웹 보안 기초 (HttpSession, Interceptor, BCrypt, JWT 개념, 4대 보안 위협) | [week07/](week07/) |
 | Week 09 | Java DB 프로그래밍 & MyBatis (JDBC 통증 → SQL Mapper, HikariCP, `#{}/${}`, Spring Profile, 팀 ERD 1차) | [week09/](week09/) |
+| Week 10 | Spring MVC 패턴 (DispatcherServlet, 3계층/DTO, PRG, `@ControllerAdvice`, `@Valid`, 팀 화면설계서/API 명세서) | [week10/](week10/) |
 
 ### Week 09 상세 — Lab 구성
 
@@ -27,6 +28,19 @@
 | 06 | 팀 ERD 작성 (과제) | docs/W09_ERD.md (Mermaid + DDL) | 20분 |
 
 > Week 08은 팀 프로젝트 분석 단계 (FR/NFR · MoSCoW · 요구사항 정의서). Week 09는 그 분석 결과를 **테이블 설계·구현으로 옮기는 첫 주**.
+
+### Week 10 상세 — Lab 구성
+
+| Lab | 주제 | 산출물 | 시간 |
+|---|---|---|---|
+| 01 | 학생 CRUD 5계층 (그린필드 학습) | swframework 9주차 완성 코드 — 읽고 이해 | 50분 |
+| 02 | 전역 예외 처리 (`@ControllerAdvice`) | `exception/` + `templates/error/` (404·500) 신규 추가 | 25분 |
+| 03 | Bean Validation (`@Valid` + `BindingResult`) | `StudentForm` 검증 패턴 분석 | 25분 |
+| 04 | Dynamic SQL 검색 응용 | `SearchController` + `StudentMapper.xml` (W09 lab03 확장) | 15분 |
+| 05 | HttpSession + LoginInterceptor (선택) | W07 세션·인터셉터 통합 — Lab 02·03과 결합 | 15분 |
+| 06 | 팀 화면설계서 + API 명세서 (과제) | docs/W10_화면설계서.md + docs/W10_API_명세서.md | 50분 |
+
+> Week 10은 W09 MyBatis 위에 Spring MVC 패턴(3계층·DTO·PRG·`@ControllerAdvice`·`@Valid`)을 입히는 주. **DB 스키마 변화 없이** W09의 `student` 테이블을 그대로 재사용하며, 신규 코드는 Lab 02(`exception/` + `templates/error/`)뿐.
 
 ## 기술 스택
 

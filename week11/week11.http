@@ -1,0 +1,441 @@
+### Week 11 — 페이징·검색·정렬 + 파일 업로드 + 회원 영구 저장 전체 테스트 (swframework 실 엔드포인트 기준)
+### IntelliJ HTTP Client: 각 요청 왼쪽 ▶ 버튼으로 개별 실행
+### 본 프로젝트는 W07 LoginInterceptor 활성 — [Login] 또는 [Lab05-2 회원 로그인] 을 먼저 실행해 세션 획득.
+### 사전 조건:
+###   H2 모드   : ./gradlew bootRun --args='--spring.profiles.active=h2'
+###   MySQL 모드: ./gradlew bootRun --args='--spring.profiles.active=mysql'
+###   페이징 테스트용: DataInitializer 또는 sql/data-w11.sql 로 student 30건+ 삽입 필요
+###   파일 업로드  : application.yml 의 file.upload-dir 디렉터리가 생성되어 있을 것
+
+@baseUrl = http://localhost:8080
+
+# ══════════════════════════════════════════════════════════════
+# [Login] 세션 획득 (LoginInterceptor 통과)
+# ══════════════════════════════════════════════════════════════
+
+### [Login] admin 계정으로 로그인 → JSESSIONID 쿠키 획득
+# @no-redirect
+POST {{baseUrl}}/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("로그인 후 redirect", () =>
+    client.assert([302, 303].includes(response.status)));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 01 — 페이징 (PageDTO + LIMIT/OFFSET)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab01-1] 1페이지 (기본) — size=10 가정, 10명 노출
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("상태코드 200", () => client.assert(response.status === 200));
+client.test("학생 목록 페이지", () => client.assert(response.body.includes("학생")));
+%}
+
+###
+
+### [Lab01-2] 1페이지 명시 — page=1&size=10
+GET {{baseUrl}}/students?page=1&size=10
+Accept: text/html
+
+> {%
+client.test("1페이지 200", () => client.assert(response.status === 200));
+client.test("페이지네이션 UI 존재", () =>
+    client.assert(response.body.includes("page=") ||
+                  response.body.includes("페이지")));
+%}
+
+###
+
+### [Lab01-3] 2페이지 — OFFSET=10 (11~20번 학생)
+GET {{baseUrl}}/students?page=2&size=10
+Accept: text/html
+
+> {%
+client.test("2페이지 200", () => client.assert(response.status === 200));
+client.test("2페이지 링크 표시", () =>
+    client.assert(response.body.includes("page=1") ||
+                  response.body.includes("page=3") ||
+                  response.body.includes("이전")));
+%}
+
+###
+
+### [Lab01-4] 음수 페이지 방어 — PageDTO.setPage 가 Math.max(page, 1) 로 보정
+GET {{baseUrl}}/students?page=-5&size=10
+Accept: text/html
+
+> {%
+client.test("음수 페이지 → 1페이지로 보정", () =>
+    client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab01-5] size=5 — 페이지당 5건
+GET {{baseUrl}}/students?page=1&size=5
+Accept: text/html
+
+> {%
+client.test("size=5 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 02 — 검색 + 정렬 통합 (<sql>/<include> + <choose>)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab02-1] 이름 검색 — searchType=name & keyword=홍 (페이징 동시 적용)
+GET {{baseUrl}}/students?page=1&size=10&searchType=name&keyword=홍
+Accept: text/html
+
+> {%
+client.test("검색 결과 200", () => client.assert(response.status === 200));
+client.test("홍 포함 학생 노출", () =>
+    client.assert(response.body.includes("홍")));
+%}
+
+###
+
+### [Lab02-2] 이메일 검색 — keyword=tukorea
+GET {{baseUrl}}/students?page=1&size=10&searchType=email&keyword=tukorea
+Accept: text/html
+
+> {%
+client.test("이메일 검색 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab02-3] 학번 검색 — keyword=2023
+GET {{baseUrl}}/students?page=1&size=10&searchType=student_id&keyword=2023
+Accept: text/html
+
+> {%
+client.test("학번 검색 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab02-4] 정렬 — sortBy=name (이름 오름차순)
+GET {{baseUrl}}/students?page=1&size=10&sortBy=name
+Accept: text/html
+
+> {%
+client.test("이름 정렬 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab02-5] 정렬 — sortBy=student_id (학번 오름차순)
+GET {{baseUrl}}/students?page=1&size=10&sortBy=student_id
+Accept: text/html
+
+> {%
+client.test("학번 정렬 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab02-6] 화이트리스트 방어 — sortBy 에 임의값 → 기본 정렬(ORDER BY id DESC)로 폴백
+###   <choose> 의 <otherwise> 가 처리하므로 SQL Injection 차단
+GET {{baseUrl}}/students?page=1&size=10&sortBy=;DROP%20TABLE%20student;--
+Accept: text/html
+
+> {%
+client.test("악성 sortBy → 안전하게 폴백", () =>
+    client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab02-7] 검색 + 정렬 + 페이징 동시 적용 (Querystring 모두 보존)
+GET {{baseUrl}}/students?page=2&size=10&searchType=name&keyword=김&sortBy=name
+Accept: text/html
+
+> {%
+client.test("복합 조건 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 03 — 블록 페이징 UI (10페이지씩 묶음)
+# ══════════════════════════════════════════════════════════════
+### blockSize=10 가정.
+### page=1  → block 0  (1~10)
+### page=11 → block 1  (11~20)
+### page=23 → block 2  (21~30)
+
+### [Lab03-1] 첫 블록 (page=1) — 이전 블록 링크는 없어야 함
+GET {{baseUrl}}/students?page=1&size=10
+Accept: text/html
+
+> {%
+client.test("첫 블록 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab03-2] 두 번째 블록 시작 (page=11) — 이전·다음 블록 모두 존재 가능
+GET {{baseUrl}}/students?page=11&size=10
+Accept: text/html
+
+> {%
+client.test("두 번째 블록 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab03-3] totalPages 초과 페이지 — 빈 결과 또는 마지막 페이지로 유도
+GET {{baseUrl}}/students?page=9999&size=10
+Accept: text/html
+
+> {%
+client.test("초과 페이지 응답 도달", () =>
+    client.assert([200, 302, 404].includes(response.status)));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 04 — 파일 업로드/다운로드 (MultipartFile + UUID)
+# ══════════════════════════════════════════════════════════════
+### IntelliJ HTTP Client multipart 문법:
+###   < ./fixtures/sample.txt  로 디스크 파일을 바이너리로 첨부.
+### 사전 준비:
+###   week11/fixtures/sample.txt 를 만들거나, 아래 inline 데이터 형태로 그대로 실행 가능.
+
+### [Lab04-1] 첨부 없이 정상 등록 (회귀 — Lab01 시나리오)
+# @no-redirect
+POST {{baseUrl}}/students
+Content-Type: application/x-www-form-urlencoded
+
+name=박지성&studentId=202311004&email=park@tukorea.ac.kr&major=IT경영
+
+> {%
+client.test("등록 후 redirect", () =>
+    client.assert([302, 303].includes(response.status)));
+const loc = response.headers.valueOf("Location");
+const m = loc && loc.match(/\/students\/(\d+)$/);
+if (m) client.global.set("newStudentId", m[1]);
+%}
+
+###
+
+### [Lab04-2] 첨부와 함께 등록 (multipart/form-data)
+###   학생증.pdf 형태로 attachment_name 저장, UUID 가 saved_name 에 저장
+# @no-redirect
+POST {{baseUrl}}/students
+Content-Type: multipart/form-data; boundary=----W11Boundary
+
+------W11Boundary
+Content-Disposition: form-data; name="name"
+
+손흥민
+------W11Boundary
+Content-Disposition: form-data; name="studentId"
+
+202311005
+------W11Boundary
+Content-Disposition: form-data; name="email"
+
+son@tukorea.ac.kr
+------W11Boundary
+Content-Disposition: form-data; name="major"
+
+IT경영
+------W11Boundary
+Content-Disposition: form-data; name="attachment"; filename="학생증.txt"
+Content-Type: text/plain
+
+학생증 샘플 텍스트 — UUID 저장명과 원본명 분리 확인용
+------W11Boundary--
+
+> {%
+client.test("multipart 등록 후 redirect", () =>
+    client.assert([302, 303].includes(response.status)));
+const loc = response.headers.valueOf("Location");
+const m = loc && loc.match(/\/students\/(\d+)$/);
+if (m) client.global.set("uploadedStudentId", m[1]);
+%}
+
+###
+
+### [Lab04-3] 상세 페이지에 첨부 파일 다운로드 링크 노출 확인
+GET {{baseUrl}}/students/{{uploadedStudentId}}
+Accept: text/html
+
+> {%
+client.test("상세 200", () => client.assert(response.status === 200));
+client.test("손흥민 표시", () => client.assert(response.body.includes("손흥민")));
+client.test("첨부 다운로드 링크 표시", () =>
+    client.assert(response.body.includes("attachment") ||
+                  response.body.includes("다운로드") ||
+                  response.body.includes("/students/attachment/")));
+%}
+
+###
+
+### [Lab04-4] 금지 확장자 업로드 → 폼 재렌더링 또는 400
+# @no-redirect
+POST {{baseUrl}}/students
+Content-Type: multipart/form-data; boundary=----W11Boundary
+
+------W11Boundary
+Content-Disposition: form-data; name="name"
+
+악성업로드
+------W11Boundary
+Content-Disposition: form-data; name="studentId"
+
+202311999
+------W11Boundary
+Content-Disposition: form-data; name="email"
+
+bad@tukorea.ac.kr
+------W11Boundary
+Content-Disposition: form-data; name="major"
+
+컴퓨터공학
+------W11Boundary
+Content-Disposition: form-data; name="attachment"; filename="evil.jsp"
+Content-Type: application/octet-stream
+
+<%@ page contentType="text/html" %>WEBSHELL
+------W11Boundary--
+
+> {%
+client.test("확장자 차단 응답 도달", () =>
+    client.assert([200, 302, 400, 415].includes(response.status)));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# Lab 05 — member 테이블 + BCrypt 회원가입/로그인 (W07 PasswordUtil 재사용)
+# ══════════════════════════════════════════════════════════════
+
+### [Lab05-1] 회원가입 폼
+GET {{baseUrl}}/members/signup
+Accept: text/html
+
+> {%
+client.test("가입 폼 200", () => client.assert(response.status === 200));
+client.test("loginId input", () =>
+    client.assert(response.body.includes('name="loginId"')));
+client.test("password input", () =>
+    client.assert(response.body.includes('name="password"')));
+%}
+
+###
+
+### [Lab05-2] 정상 회원가입 → PRG redirect:/members/login
+# @no-redirect
+POST {{baseUrl}}/members/signup
+Content-Type: application/x-www-form-urlencoded
+
+loginId=newuser11&password=secret123&name=신규회원&email=new11@tukorea.ac.kr
+
+> {%
+client.test("가입 후 redirect", () =>
+    client.assert([302, 303].includes(response.status)));
+client.test("Location: /members/login", () =>
+    client.assert(response.headers.valueOf("Location").endsWith("/members/login")));
+%}
+
+###
+
+### [Lab05-3] 검증 실패 — 빈 아이디 → @NotBlank → 폼 재렌더링 (200)
+POST {{baseUrl}}/members/signup
+Content-Type: application/x-www-form-urlencoded
+
+loginId=&password=secret123&name=홍&email=h@tukorea.ac.kr
+
+> {%
+client.test("검증 실패 → 폼 재렌더링 (200)", () =>
+    client.assert(response.status === 200));
+client.test("아이디 에러 메시지", () =>
+    client.assert(response.body.includes("아이디") ||
+                  response.body.includes("error")));
+%}
+
+###
+
+### [Lab05-4] 검증 실패 — 짧은 비밀번호 (@Size min=6 위반)
+POST {{baseUrl}}/members/signup
+Content-Type: application/x-www-form-urlencoded
+
+loginId=shortpw&password=123&name=짧은비번&email=s@tukorea.ac.kr
+
+> {%
+client.test("Size 검증 실패", () =>
+    client.assert(response.status === 200));
+client.test("비밀번호 에러 메시지", () =>
+    client.assert(response.body.includes("비밀번호") ||
+                  response.body.includes("6자")));
+%}
+
+###
+
+### [Lab05-5] 회원 로그인 폼
+GET {{baseUrl}}/members/login
+Accept: text/html
+
+> {%
+client.test("로그인 폼 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [Lab05-6] 회원 로그인 성공 — PasswordUtil.matches() → 세션에 loginUser 저장
+# @no-redirect
+POST {{baseUrl}}/members/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=newuser11&password=secret123
+
+> {%
+client.test("로그인 성공 redirect", () =>
+    client.assert([302, 303].includes(response.status)));
+client.test("Location: /students", () =>
+    client.assert(response.headers.valueOf("Location").endsWith("/students")));
+%}
+
+###
+
+### [Lab05-7] 로그인 실패 — 잘못된 비밀번호
+POST {{baseUrl}}/members/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=newuser11&password=wrong-password
+
+> {%
+client.test("실패 응답 200 (폼 재렌더링)", () =>
+    client.assert(response.status === 200));
+client.test("에러 메시지 노출", () =>
+    client.assert(response.body.includes("올바르지 않") ||
+                  response.body.includes("error")));
+%}
+
+###
+
+### [Lab05-8] 로그아웃 — session.invalidate()
+# @no-redirect
+POST {{baseUrl}}/members/logout
+
+> {%
+client.test("로그아웃 redirect", () =>
+    client.assert([302, 303].includes(response.status)));
+%}
+
+###

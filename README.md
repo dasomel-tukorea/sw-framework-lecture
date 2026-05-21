@@ -15,6 +15,7 @@
 | Week 07 | 세션 처리 & 웹 보안 기초 (HttpSession, Interceptor, BCrypt, JWT 개념, 4대 보안 위협) | [week07/](week07/) |
 | Week 09 | Java DB 프로그래밍 & MyBatis (JDBC 통증 → SQL Mapper, HikariCP, `#{}/${}`, Spring Profile, 팀 ERD 1차) | [week09/](week09/) |
 | Week 10 | Spring MVC 패턴 (DispatcherServlet, 3계층/DTO, PRG, `@ControllerAdvice`, `@Valid`, 팀 화면설계서/API 명세서) | [week10/](week10/) |
+| Week 11 | MVC 실습 #2 — 페이징·검색·정렬 + 파일 업로드 + member 영구 저장 (PageDTO, LIMIT/OFFSET, `<sql>/<choose>`, MultipartFile/UUID, W07 `PasswordUtil` 재사용, 팀 WBS) | [week11/](week11/) |
 
 ### Week 09 상세 — Lab 구성
 
@@ -41,6 +42,19 @@
 | 06 | 팀 화면설계서 + API 명세서 (과제) | docs/W10_화면설계서.md + docs/W10_API_명세서.md | 50분 |
 
 > Week 10은 W09 MyBatis 위에 Spring MVC 패턴(3계층·DTO·PRG·`@ControllerAdvice`·`@Valid`)을 입히는 주. **DB 스키마 변화 없이** W09의 `student` 테이블을 그대로 재사용하며, 신규 코드는 Lab 02(`exception/` + `templates/error/`)뿐.
+
+### Week 11 상세 — Lab 구성
+
+| Lab | 주제 | 산출물 | 시간 |
+|---|---|---|---|
+| 01 | 학생 페이징 (PageDTO + LIMIT/OFFSET) | `PageDTO` + `StudentMapper.findAllWithPaging`/`countAll` | 30분 |
+| 02 | 검색 + 정렬 통합 | `<sql id="searchCondition">` + `<choose>` ORDER BY 화이트리스트 | 25분 |
+| 03 | 블록 페이징 UI | startPage/endPage/blockSize 4공식 + Thymeleaf 네비게이션 | 20분 |
+| 04 | 학생 자료 첨부 업로드/다운로드 | `MultipartFile` + UUID 저장명 + `Content-Disposition` | 25분 |
+| 05 | member 테이블 + BCrypt 회원 (선택) | `MemberDTO` + **W07 `PasswordUtil` 재사용** + LoginController 통합 | 20분 |
+| 06 | 팀 WBS 작성 (과제) | docs/W11_WBS.md + assignment/W11_WBS_템플릿.xlsx | 50분 |
+
+> Week 11은 W10까지 완성된 student CRUD 위에 **페이징·검색·정렬·파일 업로드**를 얹어 실무 수준으로 끌어올리는 주. `member` 테이블을 신설해 W07 메모리 회원을 영구화하되 **새 Bean을 만들지 않고 W07 `PasswordUtil`의 정적 메서드를 그대로 재사용**한다. 팀 프로젝트는 남은 W11~W15 일정을 WBS로 분해.
 
 ## 기술 스택
 

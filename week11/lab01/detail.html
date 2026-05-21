@@ -1,0 +1,76 @@
+<!-- [복사 위치] src/main/resources/templates/student/detail.html -->
+<!-- [작업] Week 11 lab01 — 학생 상세 화면 (REST 스타일 /students/{id}) -->
+<!--
+    학습 포인트:
+    1. ${student.xxx}           — Controller 의 model.addAttribute("student", ...) 접근
+    2. th:if="${status}"        — addFlashAttribute("status", true) 성공 메시지
+    3. ${student.email ?: '-'}  — Elvis 연산자: null 이면 '-' 출력
+    4. 삭제 버튼                — form + POST (GET 삭제는 보안 취약점)
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="${student.name}">학생 상세</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<div class="container">
+    <h1>학생 상세 정보</h1>
+
+    <!--
+        RedirectAttributes.addFlashAttribute("status", true) 로 전달된 값.
+        등록/수정 성공 직후 1회만 표시, F5 새로고침 시 사라진다.
+    -->
+    <div class="alert alert-success" th:if="${status}">
+        학생 정보가 성공적으로 저장되었습니다.
+    </div>
+
+    <div class="detail-card">
+        <table class="detail-table">
+            <tr>
+                <th>번호</th>
+                <td th:text="${student.id}">1</td>
+            </tr>
+            <tr>
+                <th>학번</th>
+                <td th:text="${student.studentId}">202300001</td>
+            </tr>
+            <tr>
+                <th>이름</th>
+                <td th:text="${student.name}">홍길동</td>
+            </tr>
+            <tr>
+                <th>이메일</th>
+                <td th:text="${student.email ?: '-'}">hong@tukorea.ac.kr</td>
+            </tr>
+            <tr>
+                <th>전공</th>
+                <td th:text="${student.major ?: '-'}">IT경영전공</td>
+            </tr>
+            <tr>
+                <th>등록일</th>
+                <td th:text="${student.createdAt != null}
+                              ? ${#temporals.format(student.createdAt, 'yyyy-MM-dd HH:mm')}
+                              : '-'">2026-01-01 09:00</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="form-actions">
+        <a th:href="@{/students/{id}/edit(id=${student.id})}" class="btn btn-primary">수정</a>
+
+        <!-- 삭제: POST 방식 + confirm 다이얼로그 -->
+        <form th:action="@{/students/{id}/delete(id=${student.id})}"
+              method="post" style="display:inline;"
+              onsubmit="return confirm('정말 삭제하시겠습니까?')">
+            <button type="submit" class="btn btn-danger">삭제</button>
+        </form>
+
+        <a th:href="@{/students}" class="btn">목록으로</a>
+    </div>
+</div>
+
+</body>
+</html>

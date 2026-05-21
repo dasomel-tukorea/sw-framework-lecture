@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  [복사 위치] src/main/resources/mapper/MemberMapper.xml
+  [작업] Week 11 lab05 — 회원 SQL 매핑
+
+  namespace 는 Java Mapper 인터페이스의 FQCN 과 정확히 일치해야 한다 (대소문자 구분).
+  resultType 의 "MemberDTO" 는 mybatis.type-aliases-package 에 등록된 패키지에서 해석된다.
+-->
+<mapper namespace="kr.ac.tukorea.swframework.mapper.MemberMapper">
+
+    <!-- 공통 컬럼 (SELECT 재사용용) -->
+    <sql id="memberColumns">
+        id, login_id, password, name, email, role, created_at
+    </sql>
+
+    <!-- ============================================ -->
+    <!-- 회원 등록 — password 는 BCrypt 해시 상태로 저장  -->
+    <!-- useGeneratedKeys 로 INSERT 후 id 자동 채움      -->
+    <!-- ============================================ -->
+    <insert id="insert" parameterType="MemberDTO" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO member (login_id, password, name, email, role)
+        VALUES (#{loginId}, #{password}, #{name}, #{email}, #{role})
+    </insert>
+
+    <!-- ============================================ -->
+    <!-- loginId 로 회원 조회 (로그인 인증용)            -->
+    <!-- camelCase 설정으로 login_id → loginId 자동 매핑 -->
+    <!-- ============================================ -->
+    <select id="findByLoginId" parameterType="string" resultType="MemberDTO">
+        SELECT <include refid="memberColumns"/>
+        FROM member
+        WHERE login_id = #{loginId}
+    </select>
+
+    <!-- ============================================ -->
+    <!-- id 로 회원 단건 조회                            -->
+    <!-- ============================================ -->
+    <select id="findById" parameterType="long" resultType="MemberDTO">
+        SELECT <include refid="memberColumns"/>
+        FROM member
+        WHERE id = #{id}
+    </select>
+
+</mapper>

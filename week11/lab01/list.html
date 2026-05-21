@@ -1,0 +1,125 @@
+<!-- [복사 위치] src/main/resources/templates/student/list.html -->
+<!-- [작업] Week 11 lab01 — 학생 목록 + 검색 + 페이징 (W09 의 student/list.html 을 본 파일로 교체) -->
+<!--
+    학습 포인트:
+    1. th:each       — 컬렉션 반복 출력
+    2. th:text       — 서버 데이터를 텍스트로 출력 (HTML 이스케이프 → XSS 방어)
+    3. th:href @{}   — 컨텍스트 경로 자동 포함 + 쿼리스트링 보존
+    4. PageDTO 의 getter — ${page.totalPages}, ${page.hasPrev()} 등 직접 호출
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 목록</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<div class="container">
+    <h1>학생 관리</h1>
+
+    <!--
+        검색 폼 — W10 lab04 검색 4종(name/email/student_id/major) 유지.
+        sortBy 는 hidden 으로만 보존 (정렬 UI 는 lab02 에서 확장).
+    -->
+    <form class="search-box" th:action="@{/students}" method="get">
+        <select name="searchType">
+            <option value="name"       th:selected="${page.searchType == 'name'}">이름</option>
+            <option value="student_id" th:selected="${page.searchType == 'student_id'}">학번</option>
+            <option value="email"      th:selected="${page.searchType == 'email'}">이메일</option>
+            <option value="major"      th:selected="${page.searchType == 'major'}">전공</option>
+        </select>
+        <input type="text" name="keyword" th:value="${page.keyword}" placeholder="검색어 입력"/>
+        <input type="hidden" name="sortBy" th:value="${page.sortBy}"/>
+        <input type="hidden" name="page" value="1"/>
+        <button type="submit" class="btn">검색</button>
+    </form>
+
+    <!-- + 새 학생 등록 -->
+    <a th:href="@{/students/new}" class="btn btn-primary">+ 새 학생 등록</a>
+
+    <br><br>
+
+    <!-- 학생 목록 테이블 -->
+    <table th:if="${!#lists.isEmpty(students)}">
+        <thead>
+            <tr>
+                <th style="width:60px;">번호</th>
+                <th style="width:120px;">학번</th>
+                <th>이름</th>
+                <th>이메일</th>
+                <th style="width:140px;">전공</th>
+                <th style="width:120px;">등록일</th>
+                <th style="width:140px;">관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr th:each="student : ${students}">
+                <td th:text="${student.id}">1</td>
+                <td th:text="${student.studentId}">202300001</td>
+                <td style="text-align:left;">
+                    <a th:href="@{/students/{id}(id=${student.id})}"
+                       th:text="${student.name}">홍길동</a>
+                </td>
+                <!-- Elvis 연산자: email 이 null 이면 '-' -->
+                <td th:text="${student.email ?: '-'}">hong@tukorea.ac.kr</td>
+                <td th:text="${student.major ?: '-'}">IT경영전공</td>
+                <td th:text="${student.createdAt != null}
+                              ? ${#temporals.format(student.createdAt, 'yyyy-MM-dd')}
+                              : '-'">2026-01-01</td>
+                <td>
+                    <a th:href="@{/students/{id}/edit(id=${student.id})}" class="btn btn-sm">수정</a>
+                    <!-- 삭제는 반드시 POST — GET 삭제는 보안 취약점 -->
+                    <form th:action="@{/students/{id}/delete(id=${student.id})}"
+                          method="post" style="display:inline;"
+                          onsubmit="return confirm('정말 삭제하시겠습니까?')">
+                        <button type="submit" class="btn btn-sm btn-danger">삭제</button>
+                    </form>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <p th:if="${#lists.isEmpty(students)}" class="empty-msg">
+        등록된 학생이 없습니다.
+        <a th:href="@{/students/new}">첫 번째 학생을 등록해보세요.</a>
+    </p>
+
+    <!-- ========================================== -->
+    <!-- 페이징 네비게이션 (Week 11 lab01)            -->
+    <!-- ========================================== -->
+    <div class="pagination" th:if="${page.totalPages > 0}">
+        <a th:if="${page.hasPrev()}"
+           th:href="@{/students(page=${page.page - 1}, size=${page.size},
+                                searchType=${page.searchType}, keyword=${page.keyword},
+                                sortBy=${page.sortBy})}">
+            &laquo; 이전
+        </a>
+        <span th:unless="${page.hasPrev()}" class="disabled">&laquo; 이전</span>
+
+        <th:block th:each="i : ${#numbers.sequence(1, page.totalPages)}">
+            <span th:if="${i == page.page}" class="active" th:text="${i}">1</span>
+            <a th:unless="${i == page.page}"
+               th:href="@{/students(page=${i}, size=${page.size},
+                                    searchType=${page.searchType}, keyword=${page.keyword},
+                                    sortBy=${page.sortBy})}"
+               th:text="${i}">1</a>
+        </th:block>
+
+        <a th:if="${page.hasNext()}"
+           th:href="@{/students(page=${page.page + 1}, size=${page.size},
+                                searchType=${page.searchType}, keyword=${page.keyword},
+                                sortBy=${page.sortBy})}">
+            다음 &raquo;
+        </a>
+        <span th:unless="${page.hasNext()}" class="disabled">다음 &raquo;</span>
+    </div>
+
+    <p class="page-info"
+       th:text="'전체 ' + ${page.totalCount} + '명 | ' + ${page.page} + '/' + ${page.totalPages} + ' 페이지'">
+    </p>
+</div>
+
+</body>
+</html>

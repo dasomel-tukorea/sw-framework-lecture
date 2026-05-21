@@ -1,0 +1,62 @@
+<!-- [복사 위치] src/main/resources/templates/student/editForm.html -->
+<!-- [작업] Week 11 lab01 — 학생 수정 폼 -->
+<!--
+    addForm.html 과의 차이:
+    1. th:action — POST /students/{id}/edit (studentId 경로변수 사용)
+    2. 기존 값이 th:field 에 pre-fill (Controller 가 Student → StudentForm 복사)
+
+    studentId (Model 속성): 수정 대상 학생의 DB id (Long).
+      → th:action URL 의 {id} 치환 및 취소 버튼 링크에 사용.
+      ※ "studentId" 라는 이름은 학번 문자열과 혼동되기 쉬우니 주의.
+        여기서는 model.addAttribute("studentId", id) 로 전달된 DB PK 를 의미한다.
+-->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>학생 수정</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+
+<div class="container">
+    <h1>학생 정보 수정</h1>
+
+    <form th:action="@{/students/{id}/edit(id=${studentId})}"
+          th:object="${studentForm}" method="post">
+
+        <div class="form-group">
+            <label for="name">이름 <span class="required">*</span></label>
+            <input type="text" th:field="*{name}" placeholder="홍길동"
+                   th:classappend="${#fields.hasErrors('name')} ? 'field-error'">
+            <div class="error-msg" th:errors="*{name}">이름 에러 메시지</div>
+        </div>
+
+        <div class="form-group">
+            <label for="studentId">학번 <span class="required">*</span></label>
+            <input type="text" th:field="*{studentId}" placeholder="202300001"
+                   th:classappend="${#fields.hasErrors('studentId')} ? 'field-error'">
+            <div class="error-msg" th:errors="*{studentId}">학번 에러 메시지</div>
+        </div>
+
+        <div class="form-group">
+            <label for="email">이메일 <span class="optional">(선택)</span></label>
+            <input type="email" th:field="*{email}" placeholder="student@tukorea.ac.kr"
+                   th:classappend="${#fields.hasErrors('email')} ? 'field-error'">
+            <div class="error-msg" th:errors="*{email}">이메일 에러 메시지</div>
+        </div>
+
+        <div class="form-group">
+            <label for="major">전공 <span class="optional">(선택)</span></label>
+            <input type="text" th:field="*{major}" placeholder="IT경영전공">
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">수정 완료</button>
+            <a th:href="@{/students/{id}(id=${studentId})}" class="btn">취소</a>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  [복사 위치] src/main/resources/mapper/StudentMapper.xml
+  [작업] Week 11 lab01 — 학생 페이징 (PageDTO + LIMIT/OFFSET)
+         W09 의 기본 CRUD 위에 <sql id="searchCondition"> + findAllWithPaging + countAll 추가.
+
+  namespace 는 Java Mapper 인터페이스의 FQCN 과 정확히 일치해야 한다.
+  resultType 의 "Student" / parameterType 의 "PageDTO" 는
+  application.yml 의 mybatis.type-aliases-package 에 등록된 패키지에서 해석된다.
+  (참고: 본 강의 시리즈는 domain / dto 두 패키지를 모두 별칭으로 등록)
+-->
+<mapper namespace="kr.ac.tukorea.swframework.mapper.StudentMapper">
+
+    <!-- ============================================ -->
+    <!-- 공통 컬럼 (SELECT 재사용용)                    -->
+    <!-- ============================================ -->
+    <sql id="studentColumns">
+        id, name, student_id, email, major, created_at
+    </sql>
+
+    <!-- ============================================ -->
+    <!-- 공통 검색 조건 (W10 lab04 의 검색 4종을 재사용)  -->
+    <!-- list / count 양쪽에서 <include> 로 재사용한다.  -->
+    <!-- ============================================ -->
+    <sql id="searchCondition">
+        <where>
+            <if test="searchType == 'name' and keyword != null and keyword != ''">
+                AND name LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="searchType == 'email' and keyword != null and keyword != ''">
+                AND email LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="searchType == 'student_id' and keyword != null and keyword != ''">
+                AND student_id LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="searchType == 'major' and keyword != null and keyword != ''">
+                AND major LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+        </where>
+    </sql>
+
+    <!-- ============================================ -->
+    <!-- 학생 목록: 검색 + 페이징                       -->
+    <!-- (정렬은 lab02 에서 <choose> 로 확장)            -->
+    <!--                                              -->
+    <!-- LIMIT #{size} OFFSET #{offset} 는              -->
+    <!-- PageDTO.getSize() / getOffset() 을 그대로 사용 -->
+    <!-- ============================================ -->
+    <select id="findAllWithPaging" parameterType="PageDTO" resultType="Student">
+        SELECT <include refid="studentColumns"/>
+        FROM student
+        <include refid="searchCondition"/>
+        ORDER BY id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <!-- ============================================ -->
+    <!-- 전체 학생 수 (검색 조건 반영) — 페이지 수 계산용 -->
+    <!-- ============================================ -->
+    <select id="countAll" parameterType="PageDTO" resultType="int">
+        SELECT COUNT(*) FROM student
+        <include refid="searchCondition"/>
+    </select>
+
+    <!-- ============================================ -->
+    <!-- 학생 상세 조회 — W09 기본 CRUD                 -->
+    <!-- ============================================ -->
+    <select id="findById" parameterType="long" resultType="Student">
+        SELECT <include refid="studentColumns"/>
+        FROM student
+        WHERE id = #{id}
+    </select>
+
+    <!-- ============================================ -->
+    <!-- 학생 등록 — useGeneratedKeys 로 PK 자동 채움    -->
+    <!-- ============================================ -->
+    <insert id="insert" parameterType="Student" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO student (name, student_id, email, major)
+        VALUES (#{name}, #{studentId}, #{email}, #{major})
+    </insert>
+
+    <!-- ============================================ -->
+    <!-- 학생 수정                                     -->
+    <!-- ============================================ -->
+    <update id="update" parameterType="Student">
+        UPDATE student
+        SET name       = #{name},
+            student_id = #{studentId},
+            email      = #{email},
+            major      = #{major}
+        WHERE id = #{id}
+    </update>
+
+    <!-- ============================================ -->
+    <!-- 학생 삭제                                     -->
+    <!-- ============================================ -->
+    <delete id="delete" parameterType="long">
+        DELETE FROM student WHERE id = #{id}
+    </delete>
+
+</mapper>

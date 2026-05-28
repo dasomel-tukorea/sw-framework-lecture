@@ -16,6 +16,7 @@
 | Week 09 | Java DB 프로그래밍 & MyBatis (JDBC 통증 → SQL Mapper, HikariCP, `#{}/${}`, Spring Profile, 팀 ERD 1차) | [week09/](week09/) |
 | Week 10 | Spring MVC 패턴 (DispatcherServlet, 3계층/DTO, PRG, `@ControllerAdvice`, `@Valid`, 팀 화면설계서/API 명세서) | [week10/](week10/) |
 | Week 11 | MVC 실습 #2 — 페이징·검색·정렬 + 파일 업로드 + member 영구 저장 (PageDTO, LIMIT/OFFSET, `<sql>/<choose>`, MultipartFile/UUID, W07 `PasswordUtil` 재사용, 팀 WBS) | [week11/](week11/) |
+| Week 12 | Docker 컨테이너화 배포 (시연) — student 앱(swframework)을 **코드 변경 없이** Dockerfile로 이미지화 → `docker build`/`run` → 환경 분리(`.dockerignore`·`application-docker.yml`) → Compose(앱+MySQL), Multi-stage·Jib 심화 (W13 CI/CD의 출발점) | [week12/](week12/) |
 
 ### Week 09 상세 — Lab 구성
 
@@ -55,6 +56,21 @@
 | 06 | 팀 WBS 작성 (과제) | docs/W11_WBS.md + assignment/W11_WBS_템플릿.xlsx | 50분 |
 
 > Week 11은 W10까지 완성된 student CRUD 위에 **페이징·검색·정렬·파일 업로드**를 얹어 실무 수준으로 끌어올리는 주. `member` 테이블을 신설해 W07 메모리 회원을 영구화하되 **새 Bean을 만들지 않고 W07 `PasswordUtil`의 정적 메서드를 그대로 재사용**한다. 팀 프로젝트는 남은 W11~W15 일정을 WBS로 분해.
+
+### Week 12 상세 — 시연 구성
+
+> Week 12는 **실습이 아닌 시연(Demonstration)** 주차. 코드는 한 줄도 바꾸지 않고 '실행 환경'만 통째로 패키징한다.
+
+| 단계 | 주제 | 내용 / 명령 | 시간 |
+|---|---|---|---|
+| PART 1 | Docker 이론 | Why Docker·아키텍처·VM vs Container·Dockerfile/Image/Container·라이프사이클·레이어 캐시·Compose | ~80분 |
+| 시연 A | student 앱 컨테이너화 | JAR 빌드 → Dockerfile → `docker build` → `docker run` → `:8080/students` | ~30분 |
+| 시연 B | 확인·관리·트러블슈팅 | `docker ps`·`logs`·`stop`/`start`/`rm` · STATUS 읽는 법 | ~10분 |
+| 시연 C | 환경 분리 | `.dockerignore` · `application-docker.yml` · `-e DB_HOST` 환경변수 주입 | ~15분 |
+| 심화 | Multi-stage·Jib | 이미지 경량화(~290→~250MB) · Dockerfile 없이 빌드(Jib) | (선택) |
+| 시연 D | Docker Compose | `docker-compose.yml` 한 장 = 앱(Spring Boot) + MySQL 동시 실행 | ~25분 |
+
+> Week 12는 W11까지 완성한 student 앱(swframework)을 Docker 이미지로 패키징해 "내 컴퓨터에서는 되는데…" 환경 차이 문제를 없애는 주. Docker 자산(`Dockerfile`·`docker-compose.yml`·`application-docker.yml`·`sql/schema.sql`)은 프로젝트 루트에서 동작하도록 `week12/` 루트에 둔다. 오늘 만든 이미지가 **W13 CI/CD(자동 빌드·배포)의 출발점**이 된다.
 
 ## 기술 스택
 

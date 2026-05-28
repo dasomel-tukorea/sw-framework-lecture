@@ -1,0 +1,32 @@
+# application-docker.yml — Docker 환경 전용 설정 (src/main/resources/)
+# Week 12 — Docker 컨테이너화 배포
+# 활성화: java -Dspring.profiles.active=docker -jar app.jar
+#         (Dockerfile 의 ENTRYPOINT 또는 docker run -e SPRING_PROFILES_ACTIVE=docker)
+#
+# 핵심: application.yaml(공통 설정)이 먼저 로드되고, 이 파일이 그 위에 "덮어쓴다".
+#       → datasource(접속 정보)만 환경변수로 override 하고,
+#         mybatis/multipart 등 공통 설정은 application.yaml 에서 그대로 상속받는다.
+
+spring:
+  datasource:
+    # DB_HOST 환경변수가 없으면 host.docker.internal(=호스트 머신) 사용.
+    # docker-compose 환경에서는 DB_HOST=db 로 주입되어 같은 네트워크의 db 서비스에 접속.
+    url: jdbc:mysql://${DB_HOST:host.docker.internal}:3306/swframework?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASS:1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # 운영 환경에서는 템플릿 캐시 활성화 (개발 application.yaml 에서는 비활성)
+  thymeleaf:
+    cache: true
+
+  # 컨테이너가 붙는 DB 에 테이블이 없을 수 있으므로 스키마 자동 생성 (IF NOT EXISTS = 멱등)
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-mysql.sql
+
+# 참고) mybatis 설정은 application.yaml 에서 상속된다.
+#   mapper-locations: classpath:mapper/*.xml
+#   type-aliases-package: kr.ac.tukorea.swframework.domain   ← Student 등 도메인 패키지
+#   configuration.map-underscore-to-camel-case: true          ← student_id → studentId

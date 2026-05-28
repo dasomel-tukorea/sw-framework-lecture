@@ -1,0 +1,115 @@
+### Week 12 — Docker 컨테이너화 배포 검증 (.http)
+### 컨테이너로 띄운 swframework(student 도메인) 앱이 정상 동작하는지 HTTP 로 확인한다.
+### docker build/run 자체는 셸에서 수행하고, 여기서는 "컨테이너 안의 앱"을 검증한다.
+###
+### 사전 조건 (둘 중 하나):
+###   [단일 컨테이너]  ./gradlew clean bootJar
+###                    docker build -t swframework:1.0 .
+###                    docker run -d -p 8080:8080 --name swframework-app swframework:1.0
+###   [Compose 앱+DB]  ./gradlew clean bootJar
+###                    docker compose up -d --build
+###
+### 컨테이너 상태:  docker ps   /   docker compose ps
+### 앱 로그:       docker logs swframework-app   /   docker compose logs app
+
+@baseUrl = http://localhost:8080
+
+# ══════════════════════════════════════════════════════════════
+# [H] 헬스 체크 — 컨테이너가 외부에서 접속 가능한가 (포트 매핑 8080:8080)
+# ══════════════════════════════════════════════════════════════
+
+### [H-1] 학생 목록 — 컨테이너화 후에도 W11 기능 그대로 동작 (board/list 아님!)
+GET {{baseUrl}}/students
+Accept: text/html
+
+> {%
+client.test("컨테이너 앱 200", () => client.assert(response.status === 200));
+client.test("학생 목록 렌더링", () => client.assert(response.body.includes("학생")));
+%}
+
+###
+
+### [H-2] 페이징 동작 (W11 회귀) — 컨테이너 내부에서도 LIMIT/OFFSET 정상
+GET {{baseUrl}}/students?page=2&size=10
+Accept: text/html
+
+> {%
+client.test("2페이지 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [H-3] 검색 동작 (W11 회귀)
+GET {{baseUrl}}/students?searchType=name&keyword=홍
+Accept: text/html
+
+> {%
+client.test("검색 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# [DB] DB 연동 확인 — 컨테이너 ↔ MySQL 통신 (Compose: DB_HOST=db)
+# ══════════════════════════════════════════════════════════════
+
+### [DB-1] 회원 로그인 폼 — member 테이블 기반 (Compose 시 db 서비스 접속)
+GET {{baseUrl}}/members/login
+Accept: text/html
+
+> {%
+client.test("로그인 폼 200", () => client.assert(response.status === 200));
+%}
+
+###
+
+### [DB-2] 회원 로그인 — DataInitializer 가 BCrypt 로 심은 계정으로 검증
+###   (Compose 환경에서 DB 연결이 정상이어야 통과 → DB 연동 헬스체크 역할)
+# @no-redirect
+POST {{baseUrl}}/members/login
+Content-Type: application/x-www-form-urlencoded
+
+loginId=admin&password=1234
+
+> {%
+client.test("로그인 응답 도달 (DB 연결 OK)", () =>
+    client.assert([200, 302, 303].includes(response.status)));
+%}
+
+###
+
+### [DB-3] 학생 상세 — DB 조회 라운드트립 확인
+GET {{baseUrl}}/students/1
+Accept: text/html
+
+> {%
+client.test("상세 응답 도달", () =>
+    client.assert([200, 302, 404].includes(response.status)));
+%}
+
+###
+
+# ══════════════════════════════════════════════════════════════
+# [N] 네거티브 — 컨테이너 환경에서 흔한 오해 점검
+# ══════════════════════════════════════════════════════════════
+
+### [N-1] 옛 게시판 URL 은 존재하지 않아야 한다 (board 도메인 아님 → 404)
+GET {{baseUrl}}/board/list
+Accept: text/html
+
+> {%
+client.test("board/list 는 없음 (404)", () =>
+    client.assert(response.status === 404));
+%}
+
+###
+
+### [N-2] 첨부 다운로드 라우트 존재 (W11 Lab04) — savedName 없으면 404/302
+GET {{baseUrl}}/students/attachment/nonexistent-uuid.txt
+
+> {%
+client.test("attachment 라우트 응답 도달", () =>
+    client.assert([200, 302, 404].includes(response.status)));
+%}
+
+###

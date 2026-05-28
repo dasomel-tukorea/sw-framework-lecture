@@ -1,0 +1,27 @@
+# .dockerignore — Docker 빌드 시 불필요한 파일 제외 (Week 12)
+# 빌드 속도 향상 + 이미지 크기 축소 효과
+
+# Git 관련
+.git
+.gitignore
+
+# IDE 설정
+.idea
+*.iml
+
+# 문서
+*.md
+
+# 소스 코드 (JAR에 이미 컴파일되어 포함됨)
+src/
+
+# Gradle 빌드 도구 (컨테이너에서 빌드하지 않으므로 불필요)
+gradle/
+gradlew
+gradlew.bat
+
+# 빌드 중간 산출물 (JAR만 필요)
+build/classes
+build/tmp
+build/generated
+build/reports
